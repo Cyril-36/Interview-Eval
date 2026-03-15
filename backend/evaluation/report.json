@@ -1,0 +1,192 @@
+{
+  "summary": {
+    "total_entries": 150,
+    "questions": 50,
+    "roles": [
+      "Data Scientist",
+      "DevOps Engineer",
+      "ML Engineer",
+      "Product Manager",
+      "Software Engineer"
+    ],
+    "quality_levels": [
+      "good",
+      "average",
+      "poor"
+    ],
+    "optimal_weights": {
+      "sbert": 0.45,
+      "nli": 0.05,
+      "keyword": 0.5
+    },
+    "best_pearson_r": 0.8862,
+    "best_spearman_r": 0.8496
+  },
+  "baseline_comparison": {
+    "tfidf_only": {
+      "pearson_r": 0.9024,
+      "pearson_p": 0.0,
+      "spearman_r": 0.8743,
+      "spearman_p": 0.0,
+      "mean_score": 36.9,
+      "std_score": 31.0
+    },
+    "sbert_only": {
+      "pearson_r": 0.8497,
+      "pearson_p": 0.0,
+      "spearman_r": 0.8282,
+      "spearman_p": 0.0,
+      "mean_score": 58.8,
+      "std_score": 28.4
+    },
+    "sbert_nli": {
+      "pearson_r": 0.778,
+      "pearson_p": 0.0,
+      "spearman_r": 0.7585,
+      "spearman_p": 0.0,
+      "mean_score": 72.7,
+      "std_score": 18.3
+    },
+    "hybrid_default_weights": {
+      "pearson_r": 0.8495,
+      "pearson_p": 0.0,
+      "spearman_r": 0.8248,
+      "spearman_p": 0.0,
+      "mean_score": 65.5,
+      "std_score": 21.4
+    },
+    "hybrid_optimal_weights": {
+      "pearson_r": 0.8862,
+      "pearson_p": 0.0,
+      "spearman_r": 0.8496,
+      "spearman_p": 0.0,
+      "mean_score": 51.2,
+      "std_score": 29.9
+    }
+  },
+  "per_quality_analysis": {
+    "good": {
+      "count": 50,
+      "avg_human_score": 8.12,
+      "avg_sbert": 89.1,
+      "avg_nli": 90.4,
+      "avg_keyword": 82.2,
+      "avg_composite": 85.7
+    },
+    "average": {
+      "count": 50,
+      "avg_human_score": 5.18,
+      "avg_sbert": 58.6,
+      "avg_nli": 99.9,
+      "avg_keyword": 33.4,
+      "avg_composite": 48.1
+    },
+    "poor": {
+      "count": 50,
+      "avg_human_score": 2.17,
+      "avg_sbert": 28.7,
+      "avg_nli": 90.5,
+      "avg_keyword": 4.6,
+      "avg_composite": 19.7
+    }
+  },
+  "per_role_analysis": {
+    "Data Scientist": {
+      "count": 30,
+      "avg_human": 5.14,
+      "avg_composite": 47.7,
+      "pearson_r": 0.868
+    },
+    "DevOps Engineer": {
+      "count": 30,
+      "avg_human": 4.97,
+      "avg_composite": 49.3,
+      "pearson_r": 0.9413
+    },
+    "ML Engineer": {
+      "count": 30,
+      "avg_human": 5.16,
+      "avg_composite": 59.6,
+      "pearson_r": 0.9105
+    },
+    "Product Manager": {
+      "count": 30,
+      "avg_human": 5.08,
+      "avg_composite": 47.4,
+      "pearson_r": 0.9029
+    },
+    "Software Engineer": {
+      "count": 30,
+      "avg_human": 5.44,
+      "avg_composite": 51.8,
+      "pearson_r": 0.8933
+    }
+  },
+  "inter_rater_agreement": {
+    "cohens_kappa": 0.81,
+    "rater_correlation": 0.8793,
+    "num_dual_rated": 150,
+    "kappa_interpretation": "Almost Perfect"
+  },
+  "rouge_scores": {
+    "rouge1_mean": 0.4272,
+    "rougeL_mean": 0.4006,
+    "per_quality": {
+      "good": {
+        "rouge1": 0.7998,
+        "rougeL": 0.7994
+      },
+      "average": {
+        "rouge1": 0.3513,
+        "rougeL": 0.3051
+      },
+      "poor": {
+        "rouge1": 0.1306,
+        "rougeL": 0.0972
+      }
+    }
+  },
+  "bertscore": {
+    "mean_precision": 0.8112,
+    "mean_recall": 0.8327,
+    "mean_f1": 0.8212,
+    "per_quality": {
+      "good": {
+        "precision": 0.8968,
+        "recall": 0.9831,
+        "f1": 0.9379
+      },
+      "average": {
+        "precision": 0.8064,
+        "recall": 0.8019,
+        "f1": 0.8041
+      },
+      "poor": {
+        "precision": 0.7305,
+        "recall": 0.713,
+        "f1": 0.7215
+      }
+    }
+  },
+  "ablation_llm_paraphrased_answers": {
+    "description": "Robustness test using LLM-generated candidate answers with completely novel vocabulary. Tests whether the pipeline handles true paraphrases where TF-IDF similarity between good answers and ideal answers is near-zero.",
+    "tfidf_similarity_by_quality": {
+      "good": 0.212,
+      "average": 0.235,
+      "poor": 0.157
+    },
+    "baseline_comparison": {
+      "tfidf_only": {"pearson_r": 0.2725, "spearman_r": 0.3100},
+      "sbert_only": {"pearson_r": 0.1095, "spearman_r": 0.0871},
+      "sbert_nli": {"pearson_r": 0.1798, "spearman_r": 0.1177},
+      "hybrid_optimal": {"pearson_r": 0.0546, "spearman_r": 0.0378}
+    },
+    "per_quality_composite": {
+      "good": 39.3,
+      "average": 44.3,
+      "poor": 37.5
+    },
+    "finding": "When candidate answers use entirely novel vocabulary (true paraphrases), the pipeline struggles to distinguish quality levels. SBERT similarity and keyword coverage both fail because MiniLM-L6-v2 was trained on general text, not interview-specific semantic equivalence. This motivates future work: fine-tuning SBERT on interview QA pairs or using larger models (e.g., all-mpnet-base-v2) for better paraphrase detection.",
+    "implication_for_real_use": "The system works best when candidates use domain-specific terminology from the ideal answer. For candidates who explain concepts in completely novel ways, the system underscores their answers. This is a known limitation of embedding-based evaluation and motivates fine-tuning as future work."
+  }
+}
