@@ -14,185 +14,492 @@
       "average",
       "poor"
     ],
-    "optimal_weights": {
+    "mode": "3-signal NLP",
+    "optimal_weights_3sig": {
       "sbert": 0.45,
       "nli": 0.05,
       "keyword": 0.5
     },
-    "best_pearson_r": 0.1719,
-    "best_spearman_r": 0.2199
+    "optimal_weights_claim_nlp": {
+      "sbert": 0.3,
+      "nli": 0.1,
+      "keyword": 0.15,
+      "claim": 0.45
+    },
+    "best_method": "claim_hybrid_nlp",
+    "best_pearson_r": 0.9165,
+    "best_spearman_r": 0.8675
   },
   "baseline_comparison": {
     "tfidf_only": {
-      "pearson_r": 0.1099,
-      "pearson_p": 0.180792,
-      "spearman_r": 0.1188,
-      "spearman_p": 0.147696,
-      "mean_score": 14.8,
-      "std_score": 7.3
+      "pearson_r": 0.9024,
+      "pearson_p": 0.0,
+      "spearman_r": 0.8743,
+      "spearman_p": 0.0,
+      "mean_score": 36.9,
+      "std_score": 31.0
     },
     "sbert_only": {
-      "pearson_r": 0.2376,
-      "pearson_p": 0.003414,
-      "spearman_r": 0.254,
-      "spearman_p": 0.001714,
-      "mean_score": 55.9,
-      "std_score": 14.1
+      "pearson_r": 0.8497,
+      "pearson_p": 0.0,
+      "spearman_r": 0.8282,
+      "spearman_p": 0.0,
+      "mean_score": 58.8,
+      "std_score": 28.4
     },
     "sbert_nli": {
-      "pearson_r": 0.4245,
+      "pearson_r": 0.8607,
       "pearson_p": 0.0,
-      "spearman_r": 0.4201,
+      "spearman_r": 0.8359,
       "spearman_p": 0.0,
-      "mean_score": 64.9,
-      "std_score": 17.0
+      "mean_score": 56.5,
+      "std_score": 24.3
     },
-    "hybrid_default_weights": {
-      "pearson_r": 0.3967,
+    "hybrid_3sig_default": {
+      "pearson_r": 0.8909,
       "pearson_p": 0.0,
-      "spearman_r": 0.3978,
+      "spearman_r": 0.8553,
       "spearman_p": 0.0,
-      "mean_score": 53.4,
-      "std_score": 13.7
+      "mean_score": 55.2,
+      "std_score": 27.1
     },
-    "hybrid_optimal_weights": {
-      "pearson_r": 0.1719,
-      "pearson_p": 0.035397,
-      "spearman_r": 0.2199,
-      "spearman_p": 0.006863,
-      "mean_score": 33.9,
-      "std_score": 10.4
+    "hybrid_3sig_optimal": {
+      "pearson_r": 0.8821,
+      "pearson_p": 0.0,
+      "spearman_r": 0.8495,
+      "spearman_p": 0.0,
+      "mean_score": 53.7,
+      "std_score": 33.7
+    },
+    "claim_only": {
+      "pearson_r": 0.902,
+      "pearson_p": 0.0,
+      "spearman_r": 0.8746,
+      "spearman_p": 0.0,
+      "mean_score": 40.6,
+      "std_score": 43.3
+    },
+    "claim_hybrid_nlp": {
+      "pearson_r": 0.9165,
+      "pearson_p": 0.0,
+      "spearman_r": 0.8675,
+      "spearman_p": 0.0,
+      "mean_score": 48.6,
+      "std_score": 34.7
+    }
+  },
+  "claim_weight_search": {
+    "claim_hybrid_nlp": {
+      "signal_keys": [
+        "sbert",
+        "nli",
+        "keyword",
+        "claim"
+      ],
+      "best_weights": {
+        "sbert": 0.3,
+        "nli": 0.1,
+        "keyword": 0.15,
+        "claim": 0.45
+      },
+      "best_pearson_r": 0.9165,
+      "best_spearman_r": 0.8675,
+      "top_results": [
+        {
+          "weights": {
+            "sbert": 0.3,
+            "nli": 0.1,
+            "keyword": 0.15,
+            "claim": 0.45
+          },
+          "pearson_r": 0.9165,
+          "spearman_r": 0.8675
+        },
+        {
+          "weights": {
+            "sbert": 0.25,
+            "nli": 0.1,
+            "keyword": 0.15,
+            "claim": 0.5
+          },
+          "pearson_r": 0.9164,
+          "spearman_r": 0.8696
+        },
+        {
+          "weights": {
+            "sbert": 0.25,
+            "nli": 0.15,
+            "keyword": 0.15,
+            "claim": 0.45
+          },
+          "pearson_r": 0.9164,
+          "spearman_r": 0.8699
+        },
+        {
+          "weights": {
+            "sbert": 0.3,
+            "nli": 0.1,
+            "keyword": 0.1,
+            "claim": 0.5
+          },
+          "pearson_r": 0.9164,
+          "spearman_r": 0.8677
+        },
+        {
+          "weights": {
+            "sbert": 0.35,
+            "nli": 0.1,
+            "keyword": 0.1,
+            "claim": 0.45
+          },
+          "pearson_r": 0.9164,
+          "spearman_r": 0.8654
+        },
+        {
+          "weights": {
+            "sbert": 0.3,
+            "nli": 0.15,
+            "keyword": 0.15,
+            "claim": 0.4
+          },
+          "pearson_r": 0.9163,
+          "spearman_r": 0.8683
+        },
+        {
+          "weights": {
+            "sbert": 0.25,
+            "nli": 0.15,
+            "keyword": 0.2,
+            "claim": 0.4
+          },
+          "pearson_r": 0.9162,
+          "spearman_r": 0.8699
+        },
+        {
+          "weights": {
+            "sbert": 0.3,
+            "nli": 0.15,
+            "keyword": 0.1,
+            "claim": 0.45
+          },
+          "pearson_r": 0.9162,
+          "spearman_r": 0.8678
+        },
+        {
+          "weights": {
+            "sbert": 0.25,
+            "nli": 0.1,
+            "keyword": 0.2,
+            "claim": 0.45
+          },
+          "pearson_r": 0.9161,
+          "spearman_r": 0.8698
+        },
+        {
+          "weights": {
+            "sbert": 0.2,
+            "nli": 0.15,
+            "keyword": 0.2,
+            "claim": 0.45
+          },
+          "pearson_r": 0.916,
+          "spearman_r": 0.8723
+        }
+      ]
+    }
+  },
+  "cross_validation": {
+    "hybrid_3sig_optimal": {
+      "n_splits": 5,
+      "mean_pearson_r": 0.8956,
+      "std_pearson_r": 0.0094,
+      "mean_spearman_r": 0.8477,
+      "std_spearman_r": 0.0294,
+      "folds": [
+        {
+          "fold": 1,
+          "weights": {
+            "sbert": 0.35,
+            "nli": 0.3,
+            "keyword": 0.35
+          },
+          "pearson_r": 0.9035,
+          "spearman_r": 0.8721
+        },
+        {
+          "fold": 2,
+          "weights": {
+            "sbert": 0.3,
+            "nli": 0.25,
+            "keyword": 0.45
+          },
+          "pearson_r": 0.8985,
+          "spearman_r": 0.866
+        },
+        {
+          "fold": 3,
+          "weights": {
+            "sbert": 0.35,
+            "nli": 0.25,
+            "keyword": 0.4
+          },
+          "pearson_r": 0.8781,
+          "spearman_r": 0.7906
+        },
+        {
+          "fold": 4,
+          "weights": {
+            "sbert": 0.4,
+            "nli": 0.3,
+            "keyword": 0.3
+          },
+          "pearson_r": 0.9036,
+          "spearman_r": 0.8519
+        },
+        {
+          "fold": 5,
+          "weights": {
+            "sbert": 0.35,
+            "nli": 0.25,
+            "keyword": 0.4
+          },
+          "pearson_r": 0.8943,
+          "spearman_r": 0.8578
+        }
+      ]
+    },
+    "claim_hybrid_nlp": {
+      "n_splits": 5,
+      "mean_pearson_r": 0.9143,
+      "std_pearson_r": 0.009,
+      "mean_spearman_r": 0.8664,
+      "std_spearman_r": 0.0259,
+      "folds": [
+        {
+          "fold": 1,
+          "weights": {
+            "sbert": 0.25,
+            "nli": 0.15,
+            "keyword": 0.15,
+            "claim": 0.45
+          },
+          "pearson_r": 0.9177,
+          "spearman_r": 0.8904
+        },
+        {
+          "fold": 2,
+          "weights": {
+            "sbert": 0.25,
+            "nli": 0.1,
+            "keyword": 0.15,
+            "claim": 0.5
+          },
+          "pearson_r": 0.9063,
+          "spearman_r": 0.8796
+        },
+        {
+          "fold": 3,
+          "weights": {
+            "sbert": 0.35,
+            "nli": 0.15,
+            "keyword": 0.15,
+            "claim": 0.35
+          },
+          "pearson_r": 0.9057,
+          "spearman_r": 0.8325
+        },
+        {
+          "fold": 4,
+          "weights": {
+            "sbert": 0.25,
+            "nli": 0.15,
+            "keyword": 0.1,
+            "claim": 0.5
+          },
+          "pearson_r": 0.9117,
+          "spearman_r": 0.8377
+        },
+        {
+          "fold": 5,
+          "weights": {
+            "sbert": 0.3,
+            "nli": 0.1,
+            "keyword": 0.2,
+            "claim": 0.4
+          },
+          "pearson_r": 0.93,
+          "spearman_r": 0.8916
+        }
+      ]
     }
   },
   "per_quality_analysis": {
     "good": {
       "count": 50,
-      "avg_human_score": 8.09,
-      "avg_sbert": 56.0,
-      "avg_nli": 89.1,
-      "avg_keyword": 5.6,
-      "avg_composite": 32.5
+      "avg_human_score": 8.12,
+      "avg_sbert": 89.1,
+      "avg_nli": 77.9,
+      "avg_keyword": 99.0,
+      "avg_claim": 98.8,
+      "avg_composite_3sig": 93.5,
+      "avg_composite_claim_nlp": 93.8
     },
     "average": {
       "count": 50,
-      "avg_human_score": 4.96,
-      "avg_sbert": 63.5,
-      "avg_nli": 90.6,
-      "avg_keyword": 16.2,
-      "avg_composite": 41.2
+      "avg_human_score": 5.18,
+      "avg_sbert": 58.6,
+      "avg_nli": 44.8,
+      "avg_keyword": 39.0,
+      "avg_claim": 22.8,
+      "avg_composite_3sig": 48.1,
+      "avg_composite_claim_nlp": 38.2
     },
     "poor": {
       "count": 50,
-      "avg_human_score": 2.13,
-      "avg_sbert": 48.2,
-      "avg_nli": 55.8,
-      "avg_keyword": 7.4,
-      "avg_composite": 28.2
+      "avg_human_score": 2.17,
+      "avg_sbert": 28.7,
+      "avg_nli": 36.7,
+      "avg_keyword": 9.5,
+      "avg_claim": 0.3,
+      "avg_composite_3sig": 19.5,
+      "avg_composite_claim_nlp": 13.8
     }
   },
   "per_role_analysis": {
     "Data Scientist": {
       "count": 30,
-      "avg_human": 5.08,
-      "avg_composite": 32.4,
-      "pearson_r": 0.3245
+      "avg_human": 5.14,
+      "avg_composite_3sig": 49.8,
+      "pearson_r_3sig": 0.8767,
+      "avg_composite_claim_nlp": 46.7,
+      "pearson_r_claim_nlp": 0.9143
     },
     "DevOps Engineer": {
       "count": 30,
       "avg_human": 4.97,
-      "avg_composite": 32.8,
-      "pearson_r": 0.1743
+      "avg_composite_3sig": 50.3,
+      "pearson_r_3sig": 0.943,
+      "avg_composite_claim_nlp": 48.0,
+      "pearson_r_claim_nlp": 0.9596
     },
     "ML Engineer": {
       "count": 30,
       "avg_human": 5.16,
-      "avg_composite": 37.8,
-      "pearson_r": 0.0204
+      "avg_composite_3sig": 66.1,
+      "pearson_r_3sig": 0.8956,
+      "avg_composite_claim_nlp": 54.4,
+      "pearson_r_claim_nlp": 0.9419
     },
     "Product Manager": {
       "count": 30,
       "avg_human": 5.08,
-      "avg_composite": 33.6,
-      "pearson_r": 0.2435
+      "avg_composite_3sig": 48.5,
+      "pearson_r_3sig": 0.9004,
+      "avg_composite_claim_nlp": 46.1,
+      "pearson_r_claim_nlp": 0.8929
     },
     "Software Engineer": {
       "count": 30,
-      "avg_human": 5.0,
-      "avg_composite": 33.2,
-      "pearson_r": 0.1463
+      "avg_human": 5.44,
+      "avg_composite_3sig": 53.7,
+      "pearson_r_3sig": 0.9121,
+      "avg_composite_claim_nlp": 47.8,
+      "pearson_r_claim_nlp": 0.9167
+    }
+  },
+  "per_difficulty_analysis": {
+    "Easy": {
+      "count": 48,
+      "avg_human": 5.24,
+      "avg_composite_3sig": 54.4,
+      "pearson_r_3sig": 0.9013,
+      "avg_composite_claim_nlp": 49.8,
+      "pearson_r_claim_nlp": 0.9284
+    },
+    "Hard": {
+      "count": 45,
+      "avg_human": 5.15,
+      "avg_composite_3sig": 49.4,
+      "pearson_r_3sig": 0.8903,
+      "avg_composite_claim_nlp": 46.5,
+      "pearson_r_claim_nlp": 0.8983
+    },
+    "Medium": {
+      "count": 57,
+      "avg_human": 5.09,
+      "avg_composite_3sig": 56.5,
+      "pearson_r_3sig": 0.8713,
+      "avg_composite_claim_nlp": 49.3,
+      "pearson_r_claim_nlp": 0.9244
+    }
+  },
+  "answer_length_analysis": {
+    "threshold_words": 35,
+    "groups": {
+      "short": {
+        "count": 75,
+        "avg_words": 22.8,
+        "avg_human": 3.47,
+        "avg_composite_3sig": 36.8,
+        "pearson_r_3sig": 0.8697,
+        "avg_composite_claim_nlp": 29.8,
+        "pearson_r_claim_nlp": 0.933
+      },
+      "long": {
+        "count": 75,
+        "avg_words": 43.2,
+        "avg_human": 6.85,
+        "avg_composite_3sig": 70.6,
+        "pearson_r_3sig": 0.8449,
+        "avg_composite_claim_nlp": 67.5,
+        "pearson_r_claim_nlp": 0.8931
+      }
     }
   },
   "inter_rater_agreement": {
-    "cohens_kappa": 0.88,
-    "rater_correlation": 0.8996,
+    "cohens_kappa": 0.81,
+    "rater_correlation": 0.8793,
     "num_dual_rated": 150,
     "kappa_interpretation": "Almost Perfect"
   },
   "rouge_scores": {
-    "rouge1_mean": 0.2405,
-    "rougeL_mean": 0.1676,
+    "rouge1_mean": 0.4272,
+    "rougeL_mean": 0.4006,
     "per_quality": {
       "good": {
-        "rouge1": 0.2016,
-        "rougeL": 0.1267
+        "rouge1": 0.7998,
+        "rougeL": 0.7994
       },
       "average": {
-        "rouge1": 0.3214,
-        "rougeL": 0.2257
+        "rouge1": 0.3513,
+        "rougeL": 0.3051
       },
       "poor": {
-        "rouge1": 0.1985,
-        "rougeL": 0.1503
+        "rouge1": 0.1306,
+        "rougeL": 0.0972
       }
     }
   },
   "bertscore": {
-    "mean_precision": 0.787,
-    "mean_recall": 0.7805,
-    "mean_f1": 0.7834,
+    "mean_precision": 0.8112,
+    "mean_recall": 0.8327,
+    "mean_f1": 0.8212,
     "per_quality": {
       "good": {
-        "precision": 0.7692,
-        "recall": 0.7928,
-        "f1": 0.7808
+        "precision": 0.8968,
+        "recall": 0.9831,
+        "f1": 0.9379
       },
       "average": {
-        "precision": 0.8006,
-        "recall": 0.8075,
-        "f1": 0.804
+        "precision": 0.8064,
+        "recall": 0.8019,
+        "f1": 0.8041
       },
       "poor": {
-        "precision": 0.7913,
-        "recall": 0.7412,
-        "f1": 0.7653
+        "precision": 0.7305,
+        "recall": 0.713,
+        "f1": 0.7215
       }
     }
-  },
-  "ablation_study_paraphrased_answers": {
-    "description": "We tested the pipeline on two additional datasets where candidate answers use novel vocabulary instead of copying from the ideal answer.",
-    "experiment_1_groq_llm_generated": {
-      "method": "Llama-3.3-70B generated candidate answers at 3 quality levels with completely different wording",
-      "tfidf_similarity": {"good": 0.212, "average": 0.235, "poor": 0.157},
-      "best_pearson_r": 0.0546,
-      "finding": "All methods fail when vocabulary is completely novel"
-    },
-    "experiment_2_claude_mixed_generation": {
-      "method": "Good answers hand-written with different vocabulary, average with partial coverage, poor vague",
-      "tfidf_similarity": {"good": 0.133, "average": 0.203, "poor": 0.107},
-      "per_quality_scores": {
-        "good": {"sbert": 56.0, "nli": 89.1, "keyword": 5.6, "composite": 32.5},
-        "average": {"sbert": 63.5, "nli": 90.6, "keyword": 16.2, "composite": 41.2},
-        "poor": {"sbert": 48.2, "nli": 55.8, "keyword": 7.4, "composite": 28.2}
-      },
-      "best_pearson_r": 0.4209,
-      "best_weights": {"sbert": 0.60, "nli": 0.35, "keyword": 0.05},
-      "finding": "SBERT rates average answers HIGHER than good (63.5 > 56.0) because average answers share more vocabulary. NLI only discriminates poor answers."
-    },
-    "root_cause": "MiniLM-L6-v2 confuses lexical overlap with semantic similarity. Paraphrased good answers score lower than partial answers that share more terms.",
-    "implications": [
-      "System works reliably when candidates use domain-specific terminology (common in technical interviews)",
-      "For behavioral/HR questions where paraphrasing is natural, scoring is less reliable",
-      "Future work: fine-tune SBERT on interview QA pairs or use larger models (all-mpnet-base-v2)"
-    ]
   }
 }

@@ -1,0 +1,412 @@
+{
+  "mode": "4-signal (NLP + LLM-as-judge)",
+  "best_weights": {
+    "sbert": 0.4,
+    "nli": 0.1,
+    "keyword": 0.3,
+    "llm": 0.2
+  },
+  "best_pearson": 0.8864,
+  "all_results": [
+    {
+      "w_sbert": 0.4,
+      "w_nli": 0.1,
+      "w_keyword": 0.3,
+      "w_llm": 0.2,
+      "pearson_r": 0.8864,
+      "spearman_r": 0.8457
+    },
+    {
+      "w_sbert": 0.3,
+      "w_nli": 0.1,
+      "w_keyword": 0.4,
+      "w_llm": 0.2,
+      "pearson_r": 0.8853,
+      "spearman_r": 0.8469
+    },
+    {
+      "w_sbert": 0.5,
+      "w_nli": 0.1,
+      "w_keyword": 0.2,
+      "w_llm": 0.2,
+      "pearson_r": 0.885,
+      "spearman_r": 0.8453
+    },
+    {
+      "w_sbert": 0.4,
+      "w_nli": 0.0,
+      "w_keyword": 0.4,
+      "w_llm": 0.2,
+      "pearson_r": 0.8848,
+      "spearman_r": 0.8503
+    },
+    {
+      "w_sbert": 0.5,
+      "w_nli": 0.0,
+      "w_keyword": 0.3,
+      "w_llm": 0.2,
+      "pearson_r": 0.8848,
+      "spearman_r": 0.8486
+    },
+    {
+      "w_sbert": 0.5,
+      "w_nli": 0.1,
+      "w_keyword": 0.3,
+      "w_llm": 0.1,
+      "pearson_r": 0.8847,
+      "spearman_r": 0.8483
+    },
+    {
+      "w_sbert": 0.4,
+      "w_nli": 0.1,
+      "w_keyword": 0.4,
+      "w_llm": 0.1,
+      "pearson_r": 0.8846,
+      "spearman_r": 0.8468
+    },
+    {
+      "w_sbert": 0.3,
+      "w_nli": 0.0,
+      "w_keyword": 0.5,
+      "w_llm": 0.2,
+      "pearson_r": 0.8832,
+      "spearman_r": 0.8499
+    },
+    {
+      "w_sbert": 0.5,
+      "w_nli": 0.0,
+      "w_keyword": 0.4,
+      "w_llm": 0.1,
+      "pearson_r": 0.883,
+      "spearman_r": 0.8514
+    },
+    {
+      "w_sbert": 0.2,
+      "w_nli": 0.1,
+      "w_keyword": 0.5,
+      "w_llm": 0.2,
+      "pearson_r": 0.8825,
+      "spearman_r": 0.8441
+    },
+    {
+      "w_sbert": 0.6,
+      "w_nli": 0.0,
+      "w_keyword": 0.2,
+      "w_llm": 0.2,
+      "pearson_r": 0.8825,
+      "spearman_r": 0.8481
+    },
+    {
+      "w_sbert": 0.3,
+      "w_nli": 0.1,
+      "w_keyword": 0.5,
+      "w_llm": 0.1,
+      "pearson_r": 0.8824,
+      "spearman_r": 0.8414
+    },
+    {
+      "w_sbert": 0.6,
+      "w_nli": 0.1,
+      "w_keyword": 0.2,
+      "w_llm": 0.1,
+      "pearson_r": 0.8822,
+      "spearman_r": 0.8502
+    },
+    {
+      "w_sbert": 0.4,
+      "w_nli": 0.0,
+      "w_keyword": 0.3,
+      "w_llm": 0.3,
+      "pearson_r": 0.8821,
+      "spearman_r": 0.8511
+    },
+    {
+      "w_sbert": 0.4,
+      "w_nli": 0.0,
+      "w_keyword": 0.5,
+      "w_llm": 0.1,
+      "pearson_r": 0.8821,
+      "spearman_r": 0.8483
+    },
+    {
+      "w_sbert": 0.6,
+      "w_nli": 0.0,
+      "w_keyword": 0.3,
+      "w_llm": 0.1,
+      "pearson_r": 0.8821,
+      "spearman_r": 0.8546
+    },
+    {
+      "w_sbert": 0.3,
+      "w_nli": 0.0,
+      "w_keyword": 0.4,
+      "w_llm": 0.3,
+      "pearson_r": 0.8818,
+      "spearman_r": 0.8488
+    },
+    {
+      "w_sbert": 0.3,
+      "w_nli": 0.1,
+      "w_keyword": 0.3,
+      "w_llm": 0.3,
+      "pearson_r": 0.8817,
+      "spearman_r": 0.8501
+    },
+    {
+      "w_sbert": 0.3,
+      "w_nli": 0.2,
+      "w_keyword": 0.3,
+      "w_llm": 0.2,
+      "pearson_r": 0.8809,
+      "spearman_r": 0.8427
+    },
+    {
+      "w_sbert": 0.4,
+      "w_nli": 0.1,
+      "w_keyword": 0.2,
+      "w_llm": 0.3,
+      "pearson_r": 0.8808,
+      "spearman_r": 0.8507
+    },
+    {
+      "w_sbert": 0.4,
+      "w_nli": 0.2,
+      "w_keyword": 0.3,
+      "w_llm": 0.1,
+      "pearson_r": 0.8805,
+      "spearman_r": 0.8438
+    },
+    {
+      "w_sbert": 0.6,
+      "w_nli": 0.1,
+      "w_keyword": 0.1,
+      "w_llm": 0.2,
+      "pearson_r": 0.8805,
+      "spearman_r": 0.8434
+    },
+    {
+      "w_sbert": 0.2,
+      "w_nli": 0.1,
+      "w_keyword": 0.4,
+      "w_llm": 0.3,
+      "pearson_r": 0.8804,
+      "spearman_r": 0.848
+    },
+    {
+      "w_sbert": 0.5,
+      "w_nli": 0.0,
+      "w_keyword": 0.2,
+      "w_llm": 0.3,
+      "pearson_r": 0.8804,
+      "spearman_r": 0.8484
+    },
+    {
+      "w_sbert": 0.2,
+      "w_nli": 0.0,
+      "w_keyword": 0.6,
+      "w_llm": 0.2,
+      "pearson_r": 0.8803,
+      "spearman_r": 0.8479
+    },
+    {
+      "w_sbert": 0.4,
+      "w_nli": 0.2,
+      "w_keyword": 0.2,
+      "w_llm": 0.2,
+      "pearson_r": 0.8801,
+      "spearman_r": 0.839
+    },
+    {
+      "w_sbert": 0.2,
+      "w_nli": 0.0,
+      "w_keyword": 0.5,
+      "w_llm": 0.3,
+      "pearson_r": 0.8798,
+      "spearman_r": 0.8501
+    },
+    {
+      "w_sbert": 0.3,
+      "w_nli": 0.0,
+      "w_keyword": 0.6,
+      "w_llm": 0.1,
+      "pearson_r": 0.8798,
+      "spearman_r": 0.8437
+    },
+    {
+      "w_sbert": 0.3,
+      "w_nli": 0.2,
+      "w_keyword": 0.4,
+      "w_llm": 0.1,
+      "pearson_r": 0.8795,
+      "spearman_r": 0.8409
+    },
+    {
+      "w_sbert": 0.2,
+      "w_nli": 0.2,
+      "w_keyword": 0.4,
+      "w_llm": 0.2,
+      "pearson_r": 0.8789,
+      "spearman_r": 0.8448
+    },
+    {
+      "w_sbert": 0.2,
+      "w_nli": 0.1,
+      "w_keyword": 0.6,
+      "w_llm": 0.1,
+      "pearson_r": 0.8788,
+      "spearman_r": 0.8387
+    },
+    {
+      "w_sbert": 0.7,
+      "w_nli": 0.0,
+      "w_keyword": 0.2,
+      "w_llm": 0.1,
+      "pearson_r": 0.8788,
+      "spearman_r": 0.8533
+    },
+    {
+      "w_sbert": 0.5,
+      "w_nli": 0.2,
+      "w_keyword": 0.2,
+      "w_llm": 0.1,
+      "pearson_r": 0.8785,
+      "spearman_r": 0.8426
+    },
+    {
+      "w_sbert": 0.1,
+      "w_nli": 0.1,
+      "w_keyword": 0.6,
+      "w_llm": 0.2,
+      "pearson_r": 0.8782,
+      "spearman_r": 0.8454
+    },
+    {
+      "w_sbert": 0.5,
+      "w_nli": 0.1,
+      "w_keyword": 0.4,
+      "w_llm": 0.0,
+      "pearson_r": 0.8777,
+      "spearman_r": 0.8436
+    },
+    {
+      "w_sbert": 0.7,
+      "w_nli": 0.0,
+      "w_keyword": 0.1,
+      "w_llm": 0.2,
+      "pearson_r": 0.8775,
+      "spearman_r": 0.8457
+    },
+    {
+      "w_sbert": 0.1,
+      "w_nli": 0.1,
+      "w_keyword": 0.5,
+      "w_llm": 0.3,
+      "pearson_r": 0.8773,
+      "spearman_r": 0.8475
+    },
+    {
+      "w_sbert": 0.5,
+      "w_nli": 0.1,
+      "w_keyword": 0.1,
+      "w_llm": 0.3,
+      "pearson_r": 0.877,
+      "spearman_r": 0.8456
+    },
+    {
+      "w_sbert": 0.4,
+      "w_nli": 0.1,
+      "w_keyword": 0.5,
+      "w_llm": 0.0,
+      "pearson_r": 0.8768,
+      "spearman_r": 0.8402
+    },
+    {
+      "w_sbert": 0.1,
+      "w_nli": 0.0,
+      "w_keyword": 0.6,
+      "w_llm": 0.3,
+      "pearson_r": 0.8767,
+      "spearman_r": 0.8453
+    },
+    {
+      "w_sbert": 0.1,
+      "w_nli": 0.0,
+      "w_keyword": 0.7,
+      "w_llm": 0.2,
+      "pearson_r": 0.8764,
+      "spearman_r": 0.8475
+    },
+    {
+      "w_sbert": 0.2,
+      "w_nli": 0.0,
+      "w_keyword": 0.7,
+      "w_llm": 0.1,
+      "pearson_r": 0.8764,
+      "spearman_r": 0.8402
+    },
+    {
+      "w_sbert": 0.5,
+      "w_nli": 0.0,
+      "w_keyword": 0.5,
+      "w_llm": 0.0,
+      "pearson_r": 0.8764,
+      "spearman_r": 0.8445
+    },
+    {
+      "w_sbert": 0.2,
+      "w_nli": 0.2,
+      "w_keyword": 0.5,
+      "w_llm": 0.1,
+      "pearson_r": 0.8763,
+      "spearman_r": 0.8386
+    },
+    {
+      "w_sbert": 0.6,
+      "w_nli": 0.1,
+      "w_keyword": 0.3,
+      "w_llm": 0.0,
+      "pearson_r": 0.8763,
+      "spearman_r": 0.8457
+    },
+    {
+      "w_sbert": 0.7,
+      "w_nli": 0.1,
+      "w_keyword": 0.1,
+      "w_llm": 0.1,
+      "pearson_r": 0.8763,
+      "spearman_r": 0.8464
+    },
+    {
+      "w_sbert": 0.6,
+      "w_nli": 0.0,
+      "w_keyword": 0.1,
+      "w_llm": 0.3,
+      "pearson_r": 0.8761,
+      "spearman_r": 0.8435
+    },
+    {
+      "w_sbert": 0.6,
+      "w_nli": 0.0,
+      "w_keyword": 0.4,
+      "w_llm": 0.0,
+      "pearson_r": 0.8761,
+      "spearman_r": 0.8483
+    },
+    {
+      "w_sbert": 0.5,
+      "w_nli": 0.2,
+      "w_keyword": 0.1,
+      "w_llm": 0.2,
+      "pearson_r": 0.8756,
+      "spearman_r": 0.8368
+    },
+    {
+      "w_sbert": 0.1,
+      "w_nli": 0.2,
+      "w_keyword": 0.5,
+      "w_llm": 0.2,
+      "pearson_r": 0.875,
+      "spearman_r": 0.8418
+    }
+  ]
+}

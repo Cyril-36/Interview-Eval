@@ -1,0 +1,11 @@
+[flake8]
+max-line-length = 120
+exclude = venv,__pycache__,.git
+per-file-ignores =
+    scripts/rate_answers.py:E501
+    scripts/prepare_evaluation_dataset.py:E501
+    scripts/prepare_evaluation_dataset_v2.py:E501
+    scripts/run_full_evaluation.py:E501,E127
+    scripts/generate_llm_answers.py:E501
+    scripts/download_datasets.py:E501
+    evaluation/*:E501

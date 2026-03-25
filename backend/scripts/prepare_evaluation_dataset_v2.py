@@ -111,9 +111,9 @@ def _avg_vague_explanation(sentences, keywords):
     kw_subset = random.sample(keywords, min(3, len(keywords)))
     return (
         f"This involves {kw_subset[0]} and {kw_subset[1] if len(kw_subset) > 1 else 'related concepts'}. "
-        f"The basic idea is that you need to understand how these work together in practice. "
+        "The basic idea is that you need to understand how these work together in practice. "
         f"{'It also relates to ' + kw_subset[2] + ' which is important for the overall approach. ' if len(kw_subset) > 2 else ''}"
-        f"I've studied this topic and understand the fundamentals, though I might be missing some of the finer details."
+        "I've studied this topic and understand the fundamentals, though I might be missing some of the finer details."
     )
 
 
@@ -125,10 +125,11 @@ def _avg_keyword_list(sentences, keywords):
     items = ", ".join(kws[:-1]) + f" and {kws[-1]}"
     return (
         f"The key concepts here include {items}. "
-        f"Each of these plays a role in how the system works. "
+        "Each of these plays a role in how the system works. "
         f"In my understanding, the most important one is {kws[0]} because it forms the foundation. "
-        f"The others build on top of it in various ways."
+        "The others build on top of it in various ways."
     )
+
 
 # ─── GOOD ANSWERS: Semantically equivalent, different words ───
 
@@ -339,7 +340,7 @@ def build_evaluation_dataset():
 
     print(f"\nV2 Evaluation dataset saved: {len(dataset)} instances -> {output_path}")
     print(f"  {len(questions)} questions x 3 quality levels = {len(dataset)} instances")
-    print(f"\nRoles:")
+    print("\nRoles:")
     role_counts = {}
     for q in questions:
         role_counts[q["role"]] = role_counts.get(q["role"], 0) + 1

@@ -1,5 +1,8 @@
+import asyncio
 import json
 import logging
+import random
+from concurrent.futures import ThreadPoolExecutor
 from groq import Groq
 from sentence_transformers import util
 
@@ -7,8 +10,10 @@ from app.config import get_settings
 from app.models_loader import get_registry
 
 logger = logging.getLogger(__name__)
+_executor = ThreadPoolExecutor(max_workers=2)
 
-GENERATION_PROMPT = """You are an expert technical interviewer. Generate exactly {count} interview questions for the following profile:
+GENERATION_PROMPT = """You are an expert technical interviewer. Generate exactly \
+{count} interview questions for the following profile:
 
 - Role: {role}
 - Experience Level: {level}
@@ -33,7 +38,14 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no other text:
   ]
 }}
 
-Make questions diverse — cover different sub-topics within {category}. Each question should test a distinct concept."""
+Make questions diverse — cover different sub-topics within {category}. \
+Each question should test a distinct concept.
+
+IMPORTANT: Be creative and vary your questions. Use seed {seed} for randomness. \
+Do NOT repeat common/obvious questions — dig into lesser-known sub-topics too."""
+
+MAX_RETRIES = 3
+TIMEOUT_SECONDS = 30
 
 
 async def generate_questions(
@@ -45,7 +57,6 @@ async def generate_questions(
 ) -> list[dict]:
     settings = get_settings()
 
-    # Request 2x questions for diversity filtering
     request_count = min(num_questions * 2, 20)
 
     prompt = GENERATION_PROMPT.format(
@@ -54,22 +65,39 @@ async def generate_questions(
         level=level,
         category=category,
         difficulty=difficulty,
+        seed=random.randint(1, 100000),
     )
 
-    client = Groq(api_key=settings.GROQ_API_KEY)
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=4096,
-        temperature=0.7,
-    )
+    def _call_groq():
+        client = Groq(api_key=settings.GROQ_API_KEY, timeout=TIMEOUT_SECONDS)
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                return client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=4096,
+                    temperature=0.9,
+                )
+            except Exception as e:
+                last_error = e
+                logger.warning(
+                    f"Question generation attempt"
+                    f" {attempt + 1}/{MAX_RETRIES} failed: {e}"
+                )
+                if attempt == MAX_RETRIES - 1:
+                    raise RuntimeError(
+                        f"Question generation failed after"
+                        f" {MAX_RETRIES} attempts: {last_error}"
+                    )
 
-    # Parse response
-    response_text = response.choices[0].message.content
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(_executor, _call_groq)
+
+    response_text = response.choices[0].message.content or ""
     try:
         data = json.loads(response_text)
     except json.JSONDecodeError:
-        # Try to extract JSON from the response
         start = response_text.find("{")
         end = response_text.rfind("}") + 1
         if start >= 0 and end > start:
@@ -81,8 +109,11 @@ async def generate_questions(
     if not raw_questions:
         raise ValueError("No questions generated")
 
-    # Apply SBERT diversity filter
-    filtered = _diversity_filter(raw_questions, num_questions, settings.DIVERSITY_THRESHOLD)
+    # Diversity filter uses SBERT encode (CPU-heavy) — run in executor
+    filtered = await loop.run_in_executor(
+        _executor, _diversity_filter,
+        raw_questions, num_questions, settings.DIVERSITY_THRESHOLD,
+    )
     return filtered
 
 
@@ -91,7 +122,7 @@ def _diversity_filter(
     target_count: int,
     threshold: float,
 ) -> list[dict]:
-    """Greedy selection: pick questions with max pairwise cosine similarity < threshold."""
+    """Greedy selection: pick questions with max pairwise cosine < threshold."""
     if len(questions) <= 1:
         return questions[:target_count]
 
@@ -105,7 +136,6 @@ def _diversity_filter(
         if len(selected_indices) >= target_count:
             break
 
-        # Check similarity against all already-selected questions
         is_diverse = True
         for j in selected_indices:
             sim = util.cos_sim(embeddings[i], embeddings[j]).item()

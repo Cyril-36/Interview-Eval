@@ -62,10 +62,10 @@ def auto_rate():
         print(f"  {quality.upper():>8}: {len(entries)} entries, avg human score = {avg:.1f}/10")
 
     print(f"\nSaved to {DATASET_PATH}")
-    print(f"\nYou can now run:")
-    print(f"  python -m evaluation.grid_search")
-    print(f"\nOr manually adjust scores using:")
-    print(f"  python -m scripts.rate_answers")
+    print("\nYou can now run:")
+    print("  python -m evaluation.grid_search")
+    print("\nOr manually adjust scores using:")
+    print("  python -m scripts.rate_answers")
 
 
 if __name__ == "__main__":

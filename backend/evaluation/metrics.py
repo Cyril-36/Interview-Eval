@@ -108,7 +108,7 @@ def compute_correlation(
     }
 
 
-def run_evaluation(dataset_path: str | Path) -> dict:
+async def run_evaluation(dataset_path: str | Path) -> dict:
     """
     Run full evaluation on a human-labeled dataset.
 
@@ -125,7 +125,7 @@ def run_evaluation(dataset_path: str | Path) -> dict:
     """
     import sys
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from app.services.scoring.composite import evaluate
+    from app.services.scoring.pipeline import evaluate
 
     dataset_path = Path(dataset_path)
     with open(dataset_path) as f:
@@ -137,27 +137,39 @@ def run_evaluation(dataset_path: str | Path) -> dict:
     feedbacks_reference = []
 
     for entry in data:
-        result = evaluate(entry["candidate_answer"], entry["ideal_answer"])
+        result = await evaluate(
+            entry["candidate_answer"], entry["ideal_answer"],
+        )
         system_scores.append(result.composite)
         human_scores.append(entry["human_score"])
 
         if "reference_feedback" in entry:
             feedbacks_reference.append(entry["reference_feedback"])
-            # Generate a simple feedback string for comparison
-            feedback_str = f"Score: {result.composite}. Missing: {', '.join(result.missing_keywords[:3])}"
+            feedback_str = (
+                f"Score: {result.composite}."
+                f" Missing: {', '.join(result.missing_keywords[:3])}"
+            )
             feedbacks_generated.append(feedback_str)
 
     results = {
         "num_samples": len(data),
         "correlation": compute_correlation(system_scores, human_scores),
         "score_stats": {
-            "mean_system": round(sum(system_scores) / len(system_scores), 1),
-            "mean_human_scaled": round(sum(human_scores) / len(human_scores) * 10, 1),
+            "mean_system": round(
+                sum(system_scores) / len(system_scores), 1,
+            ),
+            "mean_human_scaled": round(
+                sum(human_scores) / len(human_scores) * 10, 1,
+            ),
         },
     }
 
     if feedbacks_reference and feedbacks_generated:
-        results["bertscore"] = compute_bertscore(feedbacks_generated, feedbacks_reference)
-        results["rouge"] = compute_rouge(feedbacks_generated, feedbacks_reference)
+        results["bertscore"] = compute_bertscore(
+            feedbacks_generated, feedbacks_reference,
+        )
+        results["rouge"] = compute_rouge(
+            feedbacks_generated, feedbacks_reference,
+        )
 
     return results

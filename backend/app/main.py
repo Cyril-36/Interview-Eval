@@ -18,10 +18,16 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    logger.info("Starting model loading...")
     registry = ModelRegistry(settings)
-    registry.load_all()
-    logger.info("All models ready. Server is accepting requests.")
+    try:
+        logger.info("Pre-warming models (optional, models load lazily on first access)...")
+        registry.load_all()
+        logger.info("All models pre-warmed. Server is accepting requests.")
+    except Exception:
+        logger.warning(
+            "Model pre-warming failed; models will load lazily on first request.",
+            exc_info=True,
+        )
     yield
     logger.info("Shutting down.")
 
@@ -35,9 +41,14 @@ app = FastAPI(
 
 # CORS
 settings = get_settings()
+allow_origins = {
+    settings.FRONTEND_URL,
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+}
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL, "http://localhost:3000"],
+    allow_origins=sorted(allow_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

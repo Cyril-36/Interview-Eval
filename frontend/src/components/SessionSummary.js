@@ -1,15 +1,29 @@
 import React from "react";
+import CubeIcon from "./CubeIcon";
+import { getColor } from "../utils/colors";
 
-function getColor(score) {
-  if (score >= 80) return "#3fb950";
-  if (score >= 60) return "#d29922";
-  if (score >= 40) return "#db6d28";
-  return "#f85149";
+function RubricBar({ label, score }) {
+  return (
+    <div className="score-bar-row">
+      <span className="score-label">{label}</span>
+      <div className="score-bar-track">
+        <div
+          className="score-bar-fill"
+          style={{ width: `${Math.min(100, score)}%`, background: getColor(score) }}
+        />
+      </div>
+      <span className="score-value">{score.toFixed(0)}</span>
+    </div>
+  );
 }
 
-export default function SessionSummary({ data }) {
+export default function SessionSummary({ data, onRestart }) {
+  const rubric = data.avg_rubric;
+  const star = data.avg_star;
+
   return (
     <div className="message-row ai">
+      <div className="ai-avatar"><CubeIcon size={15} /></div>
       <div className="summary-card">
         <div className="summary-header">
           <h3>Session Complete</h3>
@@ -43,6 +57,37 @@ export default function SessionSummary({ data }) {
           </div>
         </div>
 
+        {rubric && (
+          <div className="summary-rubric">
+            <div className="summary-rubric-header">
+              <h4>Technical Rubric Averages</h4>
+              <span className="summary-rubric-note">Technical questions only</span>
+            </div>
+            <div className="score-bars">
+              <RubricBar label="Correct" score={rubric.correctness} />
+              <RubricBar label="Complete" score={rubric.completeness} />
+              <RubricBar label="Clarity" score={rubric.clarity} />
+              <RubricBar label="Depth" score={rubric.depth} />
+            </div>
+          </div>
+        )}
+
+        {star && (
+          <div className="summary-rubric">
+            <div className="summary-rubric-header">
+              <h4>Behavioral STAR Averages</h4>
+              <span className="summary-rubric-note">Behavioral questions only</span>
+            </div>
+            <div className="score-bars">
+              <RubricBar label="Situation" score={star.situation} />
+              <RubricBar label="Task" score={star.task} />
+              <RubricBar label="Action" score={star.action} />
+              <RubricBar label="Result" score={star.result} />
+              <RubricBar label="Reflection" score={star.reflection} />
+            </div>
+          </div>
+        )}
+
         <div className="summary-results">
           <h4>Per-Question Breakdown</h4>
           <div className="results-table">
@@ -52,18 +97,36 @@ export default function SessionSummary({ data }) {
               <span>SBERT</span>
               <span>NLI</span>
               <span>KW</span>
+              <span>Judge</span>
               <span>Score</span>
               <span>Grade</span>
             </div>
             {data.results.map((r) => (
               <div key={r.index} className="results-row">
                 <span>{r.index + 1}</span>
-                <span className="result-question" title={r.question_text}>
-                  {r.question_text.substring(0, 40)}...
-                </span>
+                <div className="result-question-cell">
+                  <span className="result-question" title={r.question_text}>
+                    {r.question_text.substring(0, 35)}...
+                  </span>
+                  <div className="result-meta-row">
+                    <span
+                      className={`result-type-badge ${
+                        r.is_behavioral ? "behavioral" : "technical"
+                      }`}
+                    >
+                      {r.is_behavioral ? "Behavioral" : "Technical"}
+                    </span>
+                    {r.is_behavioral && r.star_scores && (
+                      <span className="result-star-inline">
+                        S {r.star_scores.situation.toFixed(0)} T {r.star_scores.task.toFixed(0)} A {r.star_scores.action.toFixed(0)} R {r.star_scores.result.toFixed(0)} Ref {r.star_scores.reflection.toFixed(0)}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <span>{r.sbert_score.toFixed(0)}</span>
                 <span>{r.nli_score.toFixed(0)}</span>
                 <span>{r.keyword_score.toFixed(0)}</span>
+                <span>{r.llm_score.toFixed(0)}</span>
                 <span style={{ color: getColor(r.composite_score), fontWeight: 600 }}>
                   {r.composite_score.toFixed(0)}
                 </span>
@@ -73,16 +136,24 @@ export default function SessionSummary({ data }) {
           </div>
         </div>
 
-        <div className="summary-highlights">
-          <div className="highlight-item best">
-            <span className="highlight-label">Strongest</span>
-            <span className="highlight-value">{data.strongest_area}</span>
+        {data.results && data.results.length > 1 && (
+          <div className="summary-highlights">
+            <div className="highlight-item best">
+              <span className="highlight-label">Strongest</span>
+              <span className="highlight-value">{data.strongest_area}</span>
+            </div>
+            <div className="highlight-item worst">
+              <span className="highlight-label">Needs Work</span>
+              <span className="highlight-value">{data.weakest_area}</span>
+            </div>
           </div>
-          <div className="highlight-item worst">
-            <span className="highlight-label">Needs Work</span>
-            <span className="highlight-value">{data.weakest_area}</span>
-          </div>
-        </div>
+        )}
+
+        {onRestart && (
+          <button className="restart-btn" onClick={onRestart}>
+            Start New Session
+          </button>
+        )}
       </div>
     </div>
   );

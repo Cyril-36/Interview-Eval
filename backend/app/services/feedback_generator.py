@@ -1,12 +1,16 @@
+import asyncio
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from groq import Groq
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+_executor = ThreadPoolExecutor(max_workers=2)
 
-FEEDBACK_PROMPT = """You are an expert interview coach. Analyze the candidate's answer compared to the ideal answer and provide constructive feedback.
+FEEDBACK_PROMPT = """You are an expert interview coach. Analyze the candidate's answer \
+compared to the ideal answer and provide constructive feedback.
 
 Question: {question}
 
@@ -26,10 +30,13 @@ Provide feedback in this exact JSON format, no other text:
 {{
   "strengths": ["strength 1", "strength 2"],
   "improvements": ["improvement 1", "improvement 2"],
-  "model_answer": "A concise improved version of the candidate's answer incorporating missed points"
+  "model_answer": "A concise improved version incorporating missed points"
 }}
 
 Be specific and constructive. Reference actual content from the answers."""
+
+MAX_RETRIES = 2
+TIMEOUT_SECONDS = 15
 
 
 async def generate_feedback(
@@ -77,15 +84,32 @@ async def _llm_feedback(
         missing_keywords=", ".join(missing_keywords) if missing_keywords else "None",
     )
 
-    client = Groq(api_key=settings.GROQ_API_KEY)
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=1024,
-        temperature=0.3,
-    )
+    def _call_groq():
+        client = Groq(api_key=settings.GROQ_API_KEY, timeout=TIMEOUT_SECONDS)
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                return client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=1024,
+                    temperature=0.3,
+                )
+            except Exception as e:
+                last_error = e
+                logger.warning(
+                    f"Feedback attempt {attempt + 1}/{MAX_RETRIES}"
+                    f" failed: {e}"
+                )
+                if attempt == MAX_RETRIES - 1:
+                    raise RuntimeError(
+                        f"Feedback generation failed: {last_error}"
+                    )
 
-    response_text = response.choices[0].message.content
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(_executor, _call_groq)
+
+    response_text = response.choices[0].message.content or ""
     try:
         data = json.loads(response_text)
     except json.JSONDecodeError:
@@ -103,21 +127,28 @@ async def _llm_feedback(
     }
 
 
-def _fallback_feedback(missing_keywords: list[str], composite_score: float) -> dict:
+def _fallback_feedback(
+    missing_keywords: list[str], composite_score: float,
+) -> dict:
     strengths = []
     improvements = []
 
     if composite_score >= 60:
-        strengths.append("Your answer demonstrates a reasonable understanding of the topic.")
+        strengths.append(
+            "Your answer demonstrates a reasonable understanding of the topic."
+        )
     if composite_score >= 80:
         strengths.append("Excellent coverage of the key concepts.")
 
     if missing_keywords:
         improvements.append(
-            f"Consider covering these key concepts: {', '.join(missing_keywords[:5])}"
+            f"Consider covering these key concepts:"
+            f" {', '.join(missing_keywords[:5])}"
         )
     if composite_score < 60:
-        improvements.append("Try to provide more detailed explanations with specific examples.")
+        improvements.append(
+            "Try to provide more detailed explanations with specific examples."
+        )
 
     if not strengths:
         strengths.append("You attempted to answer the question.")
@@ -127,5 +158,6 @@ def _fallback_feedback(missing_keywords: list[str], composite_score: float) -> d
     return {
         "strengths": strengths,
         "improvements": improvements,
-        "model_answer": "Feedback generation unavailable offline. Review the ideal answer for guidance.",
+        "model_answer": "Feedback generation unavailable offline."
+        " Review the ideal answer for guidance.",
     }

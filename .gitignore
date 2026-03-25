@@ -2,3 +2,26 @@ node_modules/
 __pycache__/
 *.pyc
 .DS_Store
+
+# Python
+backend/venv/
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+backend/.env
+
+# Frontend build
+frontend/build/
+
+# Session data
+backend/data/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db

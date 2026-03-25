@@ -7,5 +7,5 @@ def score(candidate_answer: str, ideal_answer: str) -> float:
     embeddings = sbert.encode(
         [candidate_answer, ideal_answer], convert_to_tensor=True
     )
-    similarity = util.cos_sim(embeddings[0], embeddings[1]).item()
+    similarity: float = util.cos_sim(embeddings[0], embeddings[1]).item()
     return max(0.0, min(1.0, similarity))

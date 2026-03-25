@@ -147,7 +147,7 @@ def generate_average_answer(ideal_answer: str) -> str:
         return (
             f"{prefix}the concept relates to {key_phrase}. "
             f"{filler} "
-            f"I know the basics but would need to elaborate more on the specifics and edge cases."
+            "I know the basics but would need to elaborate more on the specifics and edge cases."
         )
 
     # Longer answer: take first ~40% of content
@@ -323,17 +323,17 @@ def build_evaluation_dataset():
 
     print(f"\nEvaluation dataset saved: {len(dataset)} answer instances -> {output_path}")
     print(f"  {len(questions)} questions x 3 quality levels = {len(dataset)} instances")
-    print(f"\nRoles covered:")
+    print("\nRoles covered:")
     role_counts = {}
     for q in questions:
         role_counts[q['role']] = role_counts.get(q['role'], 0) + 1
     for role, count in sorted(role_counts.items()):
         print(f"  {role}: {count} questions")
 
-    print(f"\nNext steps:")
+    print("\nNext steps:")
     print(f"  1. Have 2-3 raters score each answer (0-10) in {output_path}")
-    print(f"  2. Fill in 'human_score' (average), 'rater_1', 'rater_2' fields")
-    print(f"  3. Run: python -m evaluation.grid_search")
+    print("  2. Fill in 'human_score' (average), 'rater_1', 'rater_2' fields")
+    print("  3. Run: python -m evaluation.grid_search")
 
 
 if __name__ == "__main__":

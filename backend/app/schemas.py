@@ -1,13 +1,17 @@
+from typing import Literal
 from pydantic import BaseModel, Field
-from enum import Enum
 
 
 class GenerateQuestionsRequest(BaseModel):
-    role: str = Field(..., example="Software Engineer")
-    level: str = Field(..., example="Junior")
-    category: str = Field(..., example="Data Structures")
-    difficulty: str = Field(..., example="Medium")
-    num_questions: int = Field(default=5, ge=1, le=20)
+    role: str = Field(..., min_length=1, max_length=100, examples=["Software Engineer"])
+    level: Literal["Intern", "Junior", "Mid-Level", "Senior", "Lead"] = Field(
+        ..., examples=["Junior"],
+    )
+    category: str = Field(..., min_length=1, max_length=100, examples=["Data Structures"])
+    difficulty: Literal["Easy", "Medium", "Hard"] = Field(
+        ..., examples=["Medium"],
+    )
+    num_questions: int = Field(default=5, ge=1, le=10)
 
 
 class QuestionOut(BaseModel):
@@ -25,17 +29,45 @@ class GenerateQuestionsResponse(BaseModel):
 
 class EvaluateAnswerRequest(BaseModel):
     session_id: str
-    question_index: int
-    candidate_answer: str = Field(..., max_length=5000)
+    question_index: int = Field(..., ge=0)
+    candidate_answer: str = Field(..., min_length=1, max_length=5000)
+
+
+class RubricScores(BaseModel):
+    correctness: float
+    completeness: float
+    clarity: float
+    depth: float
+
+
+class STARScores(BaseModel):
+    situation: float = 0.0
+    task: float = 0.0
+    action: float = 0.0
+    result: float = 0.0
+    reflection: float = 0.0
+
+
+class ClaimFeedback(BaseModel):
+    claim: str
+    covered: bool
+    similarity: float
+    contradiction: float
 
 
 class ScoreBreakdown(BaseModel):
     sbert_score: float
     nli_score: float
     keyword_score: float
+    llm_score: float
+    llm_reason: str
+    rubric_scores: RubricScores
     composite_score: float
     grade: str
     missing_keywords: list[str]
+    is_behavioral: bool = False
+    star_scores: STARScores | None = None
+    claim_matches: list[ClaimFeedback] = []
 
 
 class FeedbackOut(BaseModel):
@@ -60,7 +92,14 @@ class QuestionResult(BaseModel):
     sbert_score: float
     nli_score: float
     keyword_score: float
+    llm_score: float
     grade: str
+    llm_correctness: float = 0.0
+    llm_completeness: float = 0.0
+    llm_clarity: float = 0.0
+    llm_depth: float = 0.0
+    is_behavioral: bool = False
+    star_scores: STARScores | None = None
 
 
 class SessionSummaryResponse(BaseModel):
@@ -75,3 +114,5 @@ class SessionSummaryResponse(BaseModel):
     strongest_area: str
     weakest_area: str
     overall_grade: str
+    avg_rubric: RubricScores | None = None
+    avg_star: STARScores | None = None

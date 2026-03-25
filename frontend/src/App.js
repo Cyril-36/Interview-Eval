@@ -1,14 +1,26 @@
 import React from "react";
 import ChatWindow from "./components/ChatWindow";
 import InputBar from "./components/InputBar";
+import CubeIcon from "./components/CubeIcon";
 import useChat from "./hooks/useChat";
 
 export default function App() {
-  const { messages, phase, isLoading, handleSend, isComplete } = useChat();
+  const {
+    messages,
+    phase,
+    isLoading,
+    handleSend,
+    handleQuickReply,
+    handleRestart,
+    isComplete,
+    setupInputPlaceholder,
+    inputFocusSignal,
+    activeSetupStep,
+  } = useChat();
 
   const getPlaceholder = () => {
-    if (isComplete) return "Session complete. Refresh to start a new interview.";
-    if (phase === "setup") return "Type your response...";
+    if (isComplete) return "Session complete. Click 'Start New Session' below.";
+    if (phase === "setup") return setupInputPlaceholder || "Type your response...";
     return "Type your answer... (Shift+Enter for new line)";
   };
 
@@ -17,16 +29,24 @@ export default function App() {
       <header className="app-header">
         <div className="header-content">
           <h1 className="header-title">
-            <span className="header-icon">&#9881;</span> AI Interview Coach
+            <span className="header-icon"><CubeIcon size={20} /></span> PrepBuddy
           </h1>
-          <span className="header-badge">NLP-Powered</span>
+          <span className="header-badge">NLP + LLM</span>
         </div>
       </header>
-      <ChatWindow messages={messages} isLoading={isLoading} />
+      <ChatWindow
+        messages={messages}
+        isLoading={isLoading}
+        onRestart={handleRestart}
+        onQuickReply={handleQuickReply}
+        phase={phase}
+        activeSetupStep={activeSetupStep}
+      />
       <InputBar
         onSend={handleSend}
         disabled={isLoading || isComplete}
         placeholder={getPlaceholder()}
+        focusSignal={inputFocusSignal}
       />
     </div>
   );
