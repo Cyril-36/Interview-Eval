@@ -122,7 +122,10 @@ def _diversity_filter(
     target_count: int,
     threshold: float,
 ) -> list[dict]:
-    """Greedy selection: pick questions with max pairwise cosine < threshold."""
+    """
+    Prefer diverse questions first, then backfill with the least-similar
+    remaining items so callers still receive the requested count.
+    """
     if len(questions) <= 1:
         return questions[:target_count]
 
@@ -145,5 +148,22 @@ def _diversity_filter(
 
         if is_diverse:
             selected_indices.append(i)
+
+    if len(selected_indices) < min(target_count, len(questions)):
+        remaining_indices = [
+            index for index in range(len(questions))
+            if index not in selected_indices
+        ]
+        ranked_remaining = sorted(
+            remaining_indices,
+            key=lambda index: max(
+                util.cos_sim(embeddings[index], embeddings[j]).item()
+                for j in selected_indices
+            ),
+        )
+        for index in ranked_remaining:
+            if len(selected_indices) >= min(target_count, len(questions)):
+                break
+            selected_indices.append(index)
 
     return [questions[i] for i in selected_indices]

@@ -67,7 +67,7 @@ class ScoreBreakdown(BaseModel):
     missing_keywords: list[str]
     is_behavioral: bool = False
     star_scores: STARScores | None = None
-    claim_matches: list[ClaimFeedback] = []
+    claim_matches: list[ClaimFeedback] = Field(default_factory=list)
 
 
 class FeedbackOut(BaseModel):

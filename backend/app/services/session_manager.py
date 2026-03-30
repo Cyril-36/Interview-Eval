@@ -3,6 +3,7 @@ import json
 import logging
 import sqlite3
 import threading
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -18,6 +19,10 @@ class SessionState(str, Enum):
     SETUP = "setup"
     INTERVIEWING = "interviewing"
     COMPLETE = "complete"
+
+
+class SessionStoreError(RuntimeError):
+    """Raised when SQLite persistence fails for reasons other than duplicates."""
 
 
 @dataclass
@@ -41,6 +46,8 @@ class AnswerResult:
     grade: str
     missing_keywords: list[str]
     feedback: dict
+    llm_reason: str = ""
+    claim_matches: list[dict] = field(default_factory=list)
     llm_correctness: float = 0.0
     llm_completeness: float = 0.0
     llm_clarity: float = 0.0
@@ -79,10 +86,12 @@ class SessionManager:
         self._migrate()
 
     def _migrate(self):
-        """Add rubric and STAR columns to existing answers tables."""
+        """Add missing answer columns to existing answers tables."""
         cursor = self._conn.execute("PRAGMA table_info(answers)")
         columns = {row[1] for row in cursor.fetchall()}
         migrate_cols = [
+            ("llm_reason", "TEXT NOT NULL DEFAULT ''"),
+            ("claim_matches", "TEXT NOT NULL DEFAULT '[]'"),
             ("llm_correctness", "REAL NOT NULL DEFAULT 0"),
             ("llm_completeness", "REAL NOT NULL DEFAULT 0"),
             ("llm_clarity", "REAL NOT NULL DEFAULT 0"),
@@ -122,10 +131,12 @@ class SessionManager:
                 nli_score REAL NOT NULL,
                 keyword_score REAL NOT NULL,
                 llm_score REAL NOT NULL,
+                llm_reason TEXT NOT NULL DEFAULT '',
                 composite_score REAL NOT NULL,
                 grade TEXT NOT NULL,
                 missing_keywords TEXT NOT NULL DEFAULT '[]',
                 feedback TEXT NOT NULL DEFAULT '{}',
+                claim_matches TEXT NOT NULL DEFAULT '[]',
                 llm_correctness REAL NOT NULL DEFAULT 0,
                 llm_completeness REAL NOT NULL DEFAULT 0,
                 llm_clarity REAL NOT NULL DEFAULT 0,
@@ -156,8 +167,8 @@ class SessionManager:
 
         answer_rows = self._conn.execute(
             "SELECT question_index, candidate_answer, sbert_score, nli_score, "
-            "keyword_score, llm_score, composite_score, grade, "
-            "missing_keywords, feedback, "
+            "keyword_score, llm_score, llm_reason, composite_score, grade, "
+            "missing_keywords, feedback, claim_matches, "
             "llm_correctness, llm_completeness, llm_clarity, llm_depth, "
             "is_behavioral, star_situation, star_task, star_action, "
             "star_result, star_reflection "
@@ -173,20 +184,22 @@ class SessionManager:
                 nli_score=a[3],
                 keyword_score=a[4],
                 llm_score=a[5],
-                composite_score=a[6],
-                grade=a[7],
-                missing_keywords=json.loads(a[8]),
-                feedback=json.loads(a[9]),
-                llm_correctness=a[10],
-                llm_completeness=a[11],
-                llm_clarity=a[12],
-                llm_depth=a[13],
-                is_behavioral=bool(a[14]),
-                star_situation=a[15],
-                star_task=a[16],
-                star_action=a[17],
-                star_result=a[18],
-                star_reflection=a[19],
+                llm_reason=a[6],
+                composite_score=a[7],
+                grade=a[8],
+                missing_keywords=json.loads(a[9]),
+                feedback=json.loads(a[10]),
+                claim_matches=json.loads(a[11]),
+                llm_correctness=a[12],
+                llm_completeness=a[13],
+                llm_clarity=a[14],
+                llm_depth=a[15],
+                is_behavioral=bool(a[16]),
+                star_situation=a[17],
+                star_task=a[18],
+                star_action=a[19],
+                star_result=a[20],
+                star_reflection=a[21],
             )
             for a in answer_rows
         ]
@@ -261,26 +274,29 @@ class SessionManager:
         )
         self._conn.commit()
 
+
+
     def add_answer(self, session_id: str, result: AnswerResult) -> bool:
         """Add an answer to a session. Returns False if duplicate."""
         with self._lock:
-            row = self._conn.execute(
-                "SELECT questions FROM sessions WHERE session_id = ?",
-                (session_id,),
-            ).fetchone()
-            if row is None:
-                return False
-
             try:
+                row = self._conn.execute(
+                    "SELECT questions FROM sessions WHERE session_id = ?",
+                    (session_id,),
+                ).fetchone()
+                if row is None:
+                    return False
+
                 self._conn.execute(
                     "INSERT INTO answers "
                     "(session_id, question_index, candidate_answer, sbert_score, "
-                    "nli_score, keyword_score, llm_score, composite_score, grade, "
-                    "missing_keywords, feedback, "
+                    "nli_score, keyword_score, llm_score, llm_reason, "
+                    "composite_score, grade, missing_keywords, feedback, "
+                    "claim_matches, "
                     "llm_correctness, llm_completeness, llm_clarity, llm_depth, "
                     "is_behavioral, star_situation, star_task, star_action, "
                     "star_result, star_reflection) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         session_id,
                         result.question_index,
@@ -289,10 +305,12 @@ class SessionManager:
                         result.nli_score,
                         result.keyword_score,
                         result.llm_score,
+                        result.llm_reason,
                         result.composite_score,
                         result.grade,
                         json.dumps(result.missing_keywords),
                         json.dumps(result.feedback),
+                        json.dumps(result.claim_matches),
                         result.llm_correctness,
                         result.llm_completeness,
                         result.llm_clarity,
@@ -305,8 +323,14 @@ class SessionManager:
                         result.star_reflection,
                     ),
                 )
-            except (sqlite3.IntegrityError, sqlite3.DatabaseError):
+            except sqlite3.IntegrityError:
+                self._conn.rollback()
                 return False
+            except sqlite3.DatabaseError as exc:
+                self._conn.rollback()
+                raise SessionStoreError(
+                    f"Failed to store answer: {exc}"
+                ) from exc
 
             # Check if all questions are answered; if so, mark complete
             questions = json.loads(row[0])
@@ -323,6 +347,15 @@ class SessionManager:
 
             self._conn.commit()
             return True
+
+    def get_answer(self, session_id: str, question_index: int) -> AnswerResult | None:
+        session = self._load_session(session_id)
+        if session is None:
+            return None
+        for answer in session.answers:
+            if answer.question_index == question_index:
+                return answer
+        return None
 
     def get_summary(self, session_id: str) -> dict | None:  # type: ignore[type-arg]
         # Fetch session metadata

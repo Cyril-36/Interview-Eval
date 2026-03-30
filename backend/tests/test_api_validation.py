@@ -233,3 +233,59 @@ class TestInputValidation:
         tc, _ = client
         resp = tc.get("/api/session_summary?session_id=nonexistent")
         assert resp.status_code == 404
+
+
+class TestSessionRecoveryEndpoints:
+    def test_session_status_reports_correctly(self, client):
+        tc, manager = client
+        session = _setup_session_with_questions(manager, n_questions=2)
+
+        resp = tc.get(f"/api/session_status?session_id={session.session_id}")
+        assert resp.status_code == 200
+        assert resp.json()["session_id"] == session.session_id
+
+    def test_answer_result_returns_persisted_scorecard_fields(self, client):
+        tc, manager = client
+        session = _setup_session_with_questions(manager, n_questions=1)
+
+        manager.add_answer(session.session_id, AnswerResult(
+            question_index=0,
+            candidate_answer="My answer",
+            sbert_score=75.0,
+            nli_score=70.0,
+            keyword_score=80.0,
+            llm_score=65.0,
+            llm_reason="Balanced answer.",
+            composite_score=72.5,
+            grade="Good",
+            missing_keywords=["trade-off analysis"],
+            feedback={
+                "strengths": ["Clear structure"],
+                "improvements": ["More depth"],
+                "model_answer": "Ideal answer",
+            },
+            claim_matches=[{
+                "claim": "Mentions trade-offs",
+                "covered": True,
+                "similarity": 0.84,
+                "contradiction": 0.0,
+            }],
+            llm_correctness=72.0,
+            llm_completeness=68.0,
+            llm_clarity=66.0,
+            llm_depth=54.0,
+        ))
+
+        resp = tc.get(
+            f"/api/answer_result?session_id={session.session_id}&question_index=0"
+        )
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["scores"]["llm_reason"] == "Balanced answer."
+        assert payload["scores"]["claim_matches"] == [{
+            "claim": "Mentions trade-offs",
+            "covered": True,
+            "similarity": 0.84,
+            "contradiction": 0.0,
+        }]
+        assert payload["feedback"]["model_answer"] == "Ideal answer"

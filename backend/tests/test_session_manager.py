@@ -43,10 +43,17 @@ def _make_answer(question_index=0, score=75.0):
         nli_score=score,
         keyword_score=score,
         llm_score=score,
+        llm_reason="Balanced answer.",
         composite_score=score,
         grade="Good",
         missing_keywords=["kw1"],
         feedback={"strengths": ["ok"]},
+        claim_matches=[{
+            "claim": "Mentions trade-offs",
+            "covered": True,
+            "similarity": 0.82,
+            "contradiction": 0.0,
+        }],
     )
 
 
@@ -115,6 +122,22 @@ class TestAddAnswer:
 
     def test_add_answer_nonexistent_session(self, manager):
         assert manager.add_answer("bad-id", _make_answer(0)) is False
+
+    def test_get_answer_round_trips_reason_and_claim_matches(self, manager):
+        session = manager.create_session("SWE", "Junior", "Python", "Easy")
+        manager.set_questions(session.session_id, _make_questions(1))
+
+        manager.add_answer(session.session_id, _make_answer(0))
+
+        answer = manager.get_answer(session.session_id, 0)
+        assert answer is not None
+        assert answer.llm_reason == "Balanced answer."
+        assert answer.claim_matches == [{
+            "claim": "Mentions trade-offs",
+            "covered": True,
+            "similarity": 0.82,
+            "contradiction": 0.0,
+        }]
 
 
 class TestDeleteSession:

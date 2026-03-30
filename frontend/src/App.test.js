@@ -5,6 +5,7 @@ import {
   checkSessionStatus,
   evaluateAnswerSSE,
   generateQuestions,
+  getAnswerResult,
   getSessionSummary,
 } from "./utils/api";
 
@@ -13,6 +14,7 @@ jest.mock("./utils/api", () => ({
   evaluateAnswer: jest.fn(),
   evaluateAnswerSSE: jest.fn(),
   generateQuestions: jest.fn(),
+  getAnswerResult: jest.fn(),
   getSessionSummary: jest.fn(),
 }));
 
@@ -54,6 +56,7 @@ describe("App restore flow", () => {
     jest.clearAllMocks();
     generateQuestions.mockResolvedValue({});
     evaluateAnswerSSE.mockResolvedValue({});
+    getAnswerResult.mockResolvedValue({});
   });
 
   test("resets to setup if restored complete session summary cannot be loaded", async () => {
@@ -137,5 +140,101 @@ describe("App setup quick replies", () => {
     expect(screen.getByRole("button", { name: "Intern" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Junior" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Lead" })).toBeInTheDocument();
+  });
+});
+
+describe("App interrupted evaluation recovery", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    jest.clearAllMocks();
+    checkSessionStatus.mockResolvedValue({ kind: "unavailable" });
+  });
+
+  test("restores a completed evaluation after the SSE request fails", async () => {
+    generateQuestions.mockResolvedValue({
+      session_id: "sess-123",
+      questions: [
+        {
+          index: 0,
+          question_text: "Explain CAP theorem.",
+          category: "System Design",
+          difficulty: "Medium",
+        },
+        {
+          index: 1,
+          question_text: "Explain consistent hashing.",
+          category: "System Design",
+          difficulty: "Medium",
+        },
+      ],
+      total_questions: 2,
+    });
+
+    evaluateAnswerSSE.mockRejectedValue(new Error("network dropped"));
+    checkSessionStatus
+      .mockResolvedValueOnce({
+        kind: "ok",
+        data: {
+          session_id: "sess-123",
+          state: "interviewing",
+          total_questions: 2,
+          answers_count: 1,
+          in_progress_indices: [],
+        },
+      });
+    getAnswerResult.mockResolvedValue({
+      scores: {
+        sbert_score: 72,
+        nli_score: 68,
+        keyword_score: 61,
+        llm_score: 74,
+        llm_reason: "Solid answer, but it stayed a bit surface-level.",
+        rubric_scores: {
+          correctness: 82,
+          completeness: 76,
+          clarity: 79,
+          depth: 64,
+        },
+        composite_score: 71,
+        grade: "Good",
+        missing_keywords: ["trade-off analysis"],
+        is_behavioral: false,
+        star_scores: null,
+        claim_matches: [],
+      },
+      feedback: {
+        strengths: ["Clear explanation"],
+        improvements: ["Add more detail"],
+        model_answer: "Example answer",
+      },
+      question_text: "Explain CAP theorem.",
+      is_last_question: false,
+      questions_remaining: 1,
+    });
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Software Engineer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Junior" }));
+    fireEvent.click(screen.getByRole("button", { name: "System Design" }));
+    fireEvent.click(screen.getByRole("button", { name: "Medium" }));
+    fireEvent.click(screen.getByRole("button", { name: "2" }));
+
+    expect(await screen.findByText("Explain CAP theorem.")).toBeInTheDocument();
+
+    const textarea = screen.getByPlaceholderText("Type your answer... (Shift+Enter for new line)");
+
+    fireEvent.change(textarea, {
+      target: { value: "My answer" },
+    });
+    fireEvent.keyDown(textarea, { key: "Enter", code: "Enter" });
+
+    expect(
+      await screen.findByText(
+        "Connection interrupted, but your evaluation completed. Restored the result below."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByText("trade-off analysis")).toBeInTheDocument();
+    expect(screen.getByText("Explain consistent hashing.")).toBeInTheDocument();
   });
 });

@@ -70,11 +70,8 @@ export async function evaluateAnswer(sessionId, questionIndex, candidateAnswer) 
   return res.json();
 }
 
-const SSE_TIMEOUT_MS = 120000; // 2 minutes for full scoring + feedback pipeline
-
 export async function evaluateAnswerSSE(sessionId, questionIndex, candidateAnswer, onEvent, { signal } = {}) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), SSE_TIMEOUT_MS);
 
   // If an external signal is provided, abort the internal controller when it fires
   const onExternalAbort = () => controller.abort();
@@ -139,7 +136,6 @@ export async function evaluateAnswerSSE(sessionId, questionIndex, candidateAnswe
     }
     return finalData;
   } finally {
-    clearTimeout(timeoutId);
     if (signal) {
       signal.removeEventListener("abort", onExternalAbort);
     }
@@ -173,6 +169,21 @@ export async function getSessionSummary(sessionId) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: "Request failed" }));
     throw new Error(formatErrorDetail(err.detail) || "Failed to get summary");
+  }
+  return res.json();
+}
+
+export async function getAnswerResult(sessionId, questionIndex) {
+  const params = new URLSearchParams({
+    session_id: sessionId,
+    question_index: String(questionIndex),
+  });
+  const res = await fetchWithTimeout(
+    `${API_BASE}/answer_result?${params.toString()}`
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Request failed" }));
+    throw new Error(formatErrorDetail(err.detail) || "Failed to get answer result");
   }
   return res.json();
 }

@@ -1,6 +1,15 @@
 from fastapi import APIRouter, HTTPException, Query
 
-from app.schemas import SessionSummaryResponse, QuestionResult, RubricScores, STARScores
+from app.schemas import (
+    ClaimFeedback,
+    EvaluateAnswerResponse,
+    FeedbackOut,
+    QuestionResult,
+    RubricScores,
+    ScoreBreakdown,
+    SessionSummaryResponse,
+    STARScores,
+)
 from app.services.session_manager import session_manager
 
 router = APIRouter()
@@ -18,6 +27,67 @@ async def session_status_endpoint(session_id: str = Query(...)):
         "total_questions": len(session.questions),
         "answers_count": len(session.answers),
     }
+
+
+@router.get("/answer_result", response_model=EvaluateAnswerResponse)
+async def answer_result_endpoint(
+    session_id: str = Query(...),
+    question_index: int = Query(..., ge=0),
+):
+    session = session_manager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if question_index >= len(session.questions):
+        raise HTTPException(status_code=400, detail="Invalid question index")
+
+    answer = session_manager.get_answer(session_id, question_index)
+    if not answer:
+        raise HTTPException(status_code=404, detail="Answer not found")
+
+    question = session.questions[question_index]
+    questions_remaining = len(session.questions) - len(session.answers)
+    star_scores = None
+    if answer.is_behavioral:
+        star_scores = STARScores(
+            situation=answer.star_situation,
+            task=answer.star_task,
+            action=answer.star_action,
+            result=answer.star_result,
+            reflection=answer.star_reflection,
+        )
+
+    return EvaluateAnswerResponse(
+        scores=ScoreBreakdown(
+            sbert_score=answer.sbert_score,
+            nli_score=answer.nli_score,
+            keyword_score=answer.keyword_score,
+            llm_score=answer.llm_score,
+            llm_reason=answer.llm_reason,
+            rubric_scores=RubricScores(
+                correctness=answer.llm_correctness,
+                completeness=answer.llm_completeness,
+                clarity=answer.llm_clarity,
+                depth=answer.llm_depth,
+            ),
+            composite_score=answer.composite_score,
+            grade=answer.grade,
+            missing_keywords=answer.missing_keywords,
+            is_behavioral=answer.is_behavioral,
+            star_scores=star_scores,
+            claim_matches=[
+                ClaimFeedback(**cm) for cm in answer.claim_matches
+            ],
+        ),
+        feedback=FeedbackOut(
+            strengths=answer.feedback.get("strengths", []),
+            improvements=answer.feedback.get("improvements", []),
+            model_answer=answer.feedback.get("model_answer", ""),
+        ),
+        question_text=question.question_text,
+        is_last_question=questions_remaining <= 0,
+        questions_remaining=max(0, questions_remaining),
+    )
 
 
 @router.get("/session_summary", response_model=SessionSummaryResponse)
