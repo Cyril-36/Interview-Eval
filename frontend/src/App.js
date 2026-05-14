@@ -1,10 +1,13 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ChatWindow from "./components/ChatWindow";
 import InputBar from "./components/InputBar";
 import CubeIcon from "./components/CubeIcon";
+import ResumeUploader from "./components/ResumeUploader";
 import useChat from "./hooks/useChat";
 
 export default function App() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
   const {
     messages,
     phase,
@@ -16,12 +19,43 @@ export default function App() {
     setupInputPlaceholder,
     inputFocusSignal,
     activeSetupStep,
+    resumeData,
+    handleResumeUpload,
+    handleResumeClear,
+    handleResumeRemoveSkill,
   } = useChat();
 
   const getPlaceholder = () => {
     if (isComplete) return "Session complete. Click 'Start New Session' below.";
     if (phase === "setup") return setupInputPlaceholder || "Type your response...";
     return "Type your answer... (Shift+Enter for new line)";
+  };
+
+  useEffect(() => {
+    if (!isMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMenuOpen]);
+
+  const handleNewSession = () => {
+    setIsMenuOpen(false);
+    handleRestart();
   };
 
   return (
@@ -31,7 +65,34 @@ export default function App() {
           <h1 className="header-title">
             <span className="header-icon"><CubeIcon size={20} /></span> PrepBuddy
           </h1>
-          <span className="header-badge">NLP + LLM</span>
+          <div className="header-actions" ref={menuRef}>
+            <span className="header-badge">NLP + LLM</span>
+            <button
+              type="button"
+              className="header-menu-btn"
+              aria-label="Open menu"
+              aria-expanded={isMenuOpen}
+              aria-haspopup="menu"
+              onClick={() => setIsMenuOpen((open) => !open)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+            {isMenuOpen && (
+              <div className="header-menu" role="menu">
+                <button
+                  type="button"
+                  className="header-menu-item"
+                  role="menuitem"
+                  onClick={handleNewSession}
+                  disabled={isLoading}
+                >
+                  New Session
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
       <ChatWindow
@@ -42,6 +103,15 @@ export default function App() {
         phase={phase}
         activeSetupStep={activeSetupStep}
       />
+      {phase === "setup" && (
+        <ResumeUploader
+          resumeData={resumeData}
+          onUpload={handleResumeUpload}
+          onClear={handleResumeClear}
+          onRemoveSkill={handleResumeRemoveSkill}
+          disabled={isLoading}
+        />
+      )}
       <InputBar
         onSend={handleSend}
         disabled={isLoading || isComplete}

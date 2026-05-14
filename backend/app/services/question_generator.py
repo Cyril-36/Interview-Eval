@@ -19,7 +19,7 @@ GENERATION_PROMPT = """You are an expert technical interviewer. Generate exactly
 - Experience Level: {level}
 - Category: {category}
 - Difficulty: {difficulty}
-
+{resume_block}
 For each question, provide:
 1. The question text
 2. A comprehensive ideal answer (3-5 sentences)
@@ -44,6 +44,33 @@ Each question should test a distinct concept.
 IMPORTANT: Be creative and vary your questions. Use seed {seed} for randomness. \
 Do NOT repeat common/obvious questions — dig into lesser-known sub-topics too."""
 
+
+def _format_resume_block(
+    resume_context: str | None,
+    extracted_skills: list[str] | None,
+) -> str:
+    """Render the optional resume context section of the prompt."""
+    context = (resume_context or "").strip()
+    skills = [s.strip() for s in (extracted_skills or []) if s and s.strip()]
+    if not context and not skills:
+        return ""
+
+    parts = ["", "Candidate resume context (use to tailor questions):"]
+    if skills:
+        parts.append(f"- Stated skills: {', '.join(skills[:20])}")
+    if context:
+        # Trim to keep prompt size bounded.
+        snippet = context[:1500]
+        parts.append(f"- Resume summary: {snippet}")
+    parts.append(
+        "Bias questions toward areas the resume claims expertise in,"
+        " and probe for depth in those areas. Stay within the requested"
+        " Role/Category/Difficulty — do not invent new categories."
+    )
+    parts.append("")
+    return "\n".join(parts)
+
+
 MAX_RETRIES = 3
 TIMEOUT_SECONDS = 30
 
@@ -54,6 +81,8 @@ async def generate_questions(
     category: str,
     difficulty: str,
     num_questions: int,
+    resume_context: str | None = None,
+    extracted_skills: list[str] | None = None,
 ) -> list[dict]:
     settings = get_settings()
 
@@ -66,6 +95,7 @@ async def generate_questions(
         category=category,
         difficulty=difficulty,
         seed=random.randint(1, 100000),
+        resume_block=_format_resume_block(resume_context, extracted_skills),
     )
 
     def _call_groq():

@@ -1,10 +1,13 @@
 import asyncio
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from groq import Groq
 from app.config import get_settings
+from app.services.llm_cache import get_cache, make_key
 from app.services.scoring.executor import executor as _executor
+
+CACHE_NAMESPACE = "llm_scorer.v1"
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +77,16 @@ async def score(
         logger.warning("No GROQ_API_KEY — skipping LLM scoring")
         return _fallback_result("LLM scoring unavailable (no API key)")
 
+    cache_key = make_key(question or "", ideal_answer, candidate_answer)
+    if settings.LLM_CACHE_ENABLED:
+        cached = get_cache().get(CACHE_NAMESPACE, cache_key)
+        if cached is not None:
+            try:
+                logger.info("LLM judge cache hit")
+                return LLMJudgeResult(**cached)
+            except TypeError as e:
+                logger.warning(f"Cached LLM result malformed, ignoring: {e}")
+
     try:
         prompt = LLM_SCORING_PROMPT.format(
             question=question or "N/A",
@@ -124,7 +137,7 @@ async def score(
         reason = data.get("reason", "")
 
         logger.info(f"LLM judge score: {raw_score}/100 — {reason}")
-        return LLMJudgeResult(
+        result = LLMJudgeResult(
             normalized_score=raw_score / 100.0,
             reason=reason,
             correctness=rubric["correctness"] / 100.0,
@@ -133,6 +146,9 @@ async def score(
             depth=rubric["depth"] / 100.0,
             is_fallback=False,
         )
+        if settings.LLM_CACHE_ENABLED:
+            get_cache().set(CACHE_NAMESPACE, cache_key, asdict(result))
+        return result
 
     except Exception as e:
         logger.warning(f"LLM scoring failed: {e}")
@@ -152,6 +168,8 @@ def _fallback_result(reason: str) -> LLMJudgeResult:
 
 
 def _normalize_score(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise ValueError("Rubric scores must be numeric")
     raw = float(value)
     return max(0.0, min(100.0, raw))
 

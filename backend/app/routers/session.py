@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.routers._session_access import require_session_access, session_token_header
 from app.schemas import (
     ClaimFeedback,
     EvaluateAnswerResponse,
@@ -8,6 +9,7 @@ from app.schemas import (
     RubricScores,
     ScoreBreakdown,
     SessionSummaryResponse,
+    SessionStatusResponse,
     STARScores,
 )
 from app.services.session_manager import session_manager
@@ -15,17 +17,19 @@ from app.services.session_manager import session_manager
 router = APIRouter()
 
 
-@router.get("/session_status")
-async def session_status_endpoint(session_id: str = Query(...)):
+@router.get("/session_status", response_model=SessionStatusResponse)
+async def session_status_endpoint(
+    session_id: str = Query(...),
+    session_token: str = Depends(session_token_header),
+):
     """Lightweight check: does this session exist and how far along is it?"""
-    session = session_manager.get_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = require_session_access(session_id, session_token)
     return {
         "session_id": session.session_id,
         "state": session.state.value,
         "total_questions": len(session.questions),
         "answers_count": len(session.answers),
+        "in_progress_indices": session_manager.get_in_progress_indices(session_id),
     }
 
 
@@ -33,10 +37,9 @@ async def session_status_endpoint(session_id: str = Query(...)):
 async def answer_result_endpoint(
     session_id: str = Query(...),
     question_index: int = Query(..., ge=0),
+    session_token: str = Depends(session_token_header),
 ):
-    session = session_manager.get_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = require_session_access(session_id, session_token)
 
     if question_index >= len(session.questions):
         raise HTTPException(status_code=400, detail="Invalid question index")
@@ -91,7 +94,11 @@ async def answer_result_endpoint(
 
 
 @router.get("/session_summary", response_model=SessionSummaryResponse)
-async def session_summary_endpoint(session_id: str = Query(...)):
+async def session_summary_endpoint(
+    session_id: str = Query(...),
+    session_token: str = Depends(session_token_header),
+):
+    require_session_access(session_id, session_token)
     summary = session_manager.get_summary(session_id)
     if not summary:
         raise HTTPException(status_code=404, detail="Session not found or no answers yet")

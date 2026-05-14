@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 from app.services.session_manager import (
     SessionManager,
     QuestionItem,
-    AnswerResult,
 )
 from app.services.scoring.scoring_types import ScoringResult
 
@@ -49,6 +48,10 @@ def _setup_session_with_questions(manager, n_questions=2):
     ]
     manager.set_questions(session.session_id, questions)
     return session
+
+
+def _auth_headers(session, token=None):
+    return {"X-Session-Token": token or session.access_token}
 
 
 def _make_scoring_result():
@@ -102,7 +105,7 @@ class TestSSEProgressEventOrdering:
                 "session_id": session.session_id,
                 "question_index": 0,
                 "candidate_answer": "My answer",
-            })
+            }, headers=_auth_headers(session))
 
         assert resp.status_code == 200
         events = _parse_sse_events(resp.text)
@@ -129,7 +132,7 @@ class TestSSEErrorEvent:
                 "session_id": session.session_id,
                 "question_index": 0,
                 "candidate_answer": "My answer",
-            })
+            }, headers=_auth_headers(session))
 
         assert resp.status_code == 200  # SSE always returns 200; error is in-band
         events = _parse_sse_events(resp.text)
@@ -165,7 +168,7 @@ class TestSSEDonePayloadStructure:
                 "session_id": session.session_id,
                 "question_index": 0,
                 "candidate_answer": "My answer",
-            })
+            }, headers=_auth_headers(session))
 
         assert resp.status_code == 200
         events = _parse_sse_events(resp.text)
@@ -231,7 +234,7 @@ class TestSSEDuplicateAnswer:
                 "session_id": session.session_id,
                 "question_index": 0,
                 "candidate_answer": "My answer",
-            })
+            }, headers=_auth_headers(session))
             assert resp1.status_code == 200
 
             # Duplicate should get 409 (raised before streaming starts)
@@ -239,9 +242,10 @@ class TestSSEDuplicateAnswer:
                 "session_id": session.session_id,
                 "question_index": 0,
                 "candidate_answer": "My answer again",
-            })
+            }, headers=_auth_headers(session))
             assert resp2.status_code == 409
-            assert "already answered" in resp2.json()["detail"]
+            assert "already" in resp2.json()["detail"].lower()
+            assert "answered" in resp2.json()["detail"].lower()
 
 
 class TestSSEBehavioralSTARScores:
@@ -288,7 +292,7 @@ class TestSSEBehavioralSTARScores:
                 "session_id": session.session_id,
                 "question_index": 0,
                 "candidate_answer": "When I was at Acme Corp...",
-            })
+            }, headers=_auth_headers(session))
 
         assert resp.status_code == 200
         events = _parse_sse_events(resp.text)
@@ -318,6 +322,6 @@ class TestSSESessionNotFound:
             "session_id": "nonexistent-uuid",
             "question_index": 0,
             "candidate_answer": "something",
-        })
+        }, headers={"X-Session-Token": "test-token"})
         assert resp.status_code == 404
         assert "not found" in resp.json()["detail"].lower()

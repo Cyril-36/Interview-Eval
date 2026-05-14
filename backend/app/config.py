@@ -30,15 +30,32 @@ class Settings(BaseSettings):
     BEHAVIORAL_LLM_WEIGHT: float = 0.60
 
     # Claim-based technical scoring (v2 pipeline)
-    CLAIM_SBERT_WEIGHT: float = 0.25
+    # Rebalanced 2026-05: LLM judge (the only signal that captures factual
+    # correctness) was previously underweighted at 0.10, and claim coverage
+    # was over-dominant at 0.50, causing correct-but-differently-worded
+    # answers to score low and wrong-but-topically-related answers to score
+    # high. New balance leans on the LLM rubric for correctness.
+    CLAIM_SBERT_WEIGHT: float = 0.20
     CLAIM_NLI_WEIGHT: float = 0.10
     CLAIM_KEYWORD_WEIGHT: float = 0.05
-    CLAIM_COVERAGE_WEIGHT: float = 0.50
-    CLAIM_LLM_WEIGHT: float = 0.10
+    CLAIM_COVERAGE_WEIGHT: float = 0.25
+    CLAIM_LLM_WEIGHT: float = 0.40
     CLAIM_MATCH_THRESHOLD: float = 0.62
     CLAIM_SOFT_MARGIN: float = 0.15
     CLAIM_CONTRADICTION_PENALTY: float = 0.20
     CLAIM_MAX_CLAIMS: int = 6
+    CLAIM_OPTIONAL_BONUS: float = 0.05
+
+    # Tiered correctness gate: caps the final composite when the LLM judge
+    # reports low factual correctness. Prevents fluent-but-wrong answers
+    # from getting "Good" grades on the strength of SBERT/keyword overlap.
+    # Thresholds and caps are on the 0-100 scale and applied after
+    # calibration. Disabled when the LLM judge falls back (no signal).
+    LLM_CORRECTNESS_GATE_ENABLED: bool = True
+    LLM_CORRECTNESS_GATE_LOW_THRESHOLD: float = 20.0
+    LLM_CORRECTNESS_GATE_LOW_CAP: float = 35.0
+    LLM_CORRECTNESS_GATE_MID_THRESHOLD: float = 40.0
+    LLM_CORRECTNESS_GATE_MID_CAP: float = 50.0
 
     # Thresholds
     DIVERSITY_THRESHOLD: float = 0.6
@@ -50,6 +67,15 @@ class Settings(BaseSettings):
 
     # CORS
     FRONTEND_URL: str = "http://localhost:3000"
+
+    # LLM response cache
+    LLM_CACHE_ENABLED: bool = True
+    LLM_CACHE_TTL_SECONDS: int = 60 * 60 * 24 * 30  # 30 days
+
+    # Resume parsing
+    RESUME_MAX_BYTES: int = 2 * 1024 * 1024  # 2 MB
+    RESUME_MAX_TEXT_CHARS: int = 20_000
+    RESUME_SKILL_COUNT: int = 12
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

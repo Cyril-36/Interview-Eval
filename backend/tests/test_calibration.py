@@ -33,10 +33,26 @@ def test_monotonicity():
     assert s20 < s50 < s80, f"Not monotonic: {s20}, {s50}, {s80}"
 
 
-def test_behavioral_identity():
-    for raw in [0, 25, 50, 75, 100]:
-        result = calibrate(raw, is_behavioral=True)
-        assert result == float(raw), f"Behavioral should be identity: {raw} -> {result}"
+def test_behavioral_poor_anchor():
+    result = calibrate(20.2, is_behavioral=True)
+    assert abs(result - 21.4) < 0.2, f"Expected ~21.4, got {result}"
+
+
+def test_behavioral_average_anchor():
+    result = calibrate(48.8, is_behavioral=True)
+    assert abs(result - 52.4) < 0.2, f"Expected ~52.4, got {result}"
+
+
+def test_behavioral_good_anchor():
+    result = calibrate(89.8, is_behavioral=True)
+    assert abs(result - 81.0) < 0.2, f"Expected ~81.0, got {result}"
+
+
+def test_behavioral_monotonicity():
+    s20 = calibrate(20, is_behavioral=True)
+    s50 = calibrate(50, is_behavioral=True)
+    s80 = calibrate(80, is_behavioral=True)
+    assert s20 < s50 < s80, f"Not monotonic: {s20}, {s50}, {s80}"
 
 
 def test_below_floor():

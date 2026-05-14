@@ -1,7 +1,21 @@
 from dataclasses import dataclass, field
 
 
-BEHAVIORAL_KEYWORDS = {"behavioral", "behaviour", "behavior", "star", "situational"}
+BEHAVIORAL_KEYWORDS = {
+    "behavioral",
+    "behaviour",
+    "behavior",
+    "star",
+    "situational",
+    "team collaboration",
+    "conflict resolution",
+    "culture fit",
+    "career goals",
+    "leadership",
+    "motivation",
+    "adaptability",
+    "work style",
+}
 
 
 def is_behavioral(category: str) -> bool:

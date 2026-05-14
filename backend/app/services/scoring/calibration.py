@@ -18,9 +18,17 @@ TECHNICAL_ANCHORS = [
     (100.0, 100.0),    # ceiling
 ]
 
-# Behavioral path doesn't have evaluation data yet, so use identity
+# Behavioral anchors derived from the behavioral subset of evaluation/dataset.json
+# using the fallback NLP-only behavioral composite (SBERT + NLI + keyword).
+# Means by quality band:
+# poor -> raw 20.2, human 21.4
+# average -> raw 48.8, human 52.4
+# good -> raw 89.8, human 81.0
 BEHAVIORAL_ANCHORS = [
     (0.0, 0.0),
+    (20.2, 21.4),
+    (48.8, 52.4),
+    (89.8, 81.0),
     (100.0, 100.0),
 ]
 

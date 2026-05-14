@@ -1,6 +1,7 @@
-import re
 import json
 import logging
+import re
+from dataclasses import dataclass
 from functools import lru_cache
 
 from groq import Groq
@@ -16,6 +17,20 @@ CLAUSE_SPLIT_RE = re.compile(
 SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 WORD_RE = re.compile(r"[A-Za-z][A-Za-z'-]*")
 JSON_ARRAY_RE = re.compile(r"\[[\s\S]*\]")
+EXAMPLE_MARKER_RE = re.compile(
+    r"\b(?:such as|including|for example|for instance|e\.g\.|like)\b",
+    re.IGNORECASE,
+)
+CORE = "core"
+OPTIONAL = "optional"
+OPTIONAL_IMPORTANCE_VALUES = {
+    "example",
+    "examples",
+    "optional",
+    "supporting",
+    "nice_to_have",
+    "nice-to-have",
+}
 
 STOPWORDS = {
     "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "in",
@@ -35,11 +50,25 @@ Requirements:
 - Keep claims concise and specific.
 - Do not repeat the same idea in different wording.
 - Ignore filler, framing, and motivational phrases.
-- Prefer claims that would help evaluate whether a candidate covered the important points.
+- Mark claims as "core" when the candidate should cover the idea.
+- Mark claims as "optional" when the claim is only an example, named tool,
+  database, library, framework, or implementation option for a broader idea.
+- Do not make examples mandatory. If the answer says "use a database like
+  MongoDB or Cassandra", make "use a database" core and the specific named
+  databases optional.
 
-Respond with ONLY a JSON array of strings. Example:
-["Claim one", "Claim two"]
+Respond with ONLY a JSON array of objects. Example:
+[
+  {{"claim": "Use a database to store user interactions", "importance": "core"}},
+  {{"claim": "MongoDB or Cassandra are possible database examples", "importance": "optional"}}
+]
 """
+
+
+@dataclass(frozen=True)
+class ExtractedClaim:
+    text: str
+    importance: str = CORE
 
 
 def _signature(text: str) -> tuple[str, ...]:
@@ -51,12 +80,48 @@ def _signature(text: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(tokens))
 
 
-def _dedupe_claims(parts: list[str], max_claims: int) -> list[str]:
-    claims: list[str] = []
+def _coerce_importance(value: object) -> str:
+    if isinstance(value, str) and value.strip().lower() in OPTIONAL_IMPORTANCE_VALUES:
+        return OPTIONAL
+    return CORE
+
+
+def _clean_claim_text(text: str) -> str:
+    return text.strip(" \n\t-.,;:")
+
+
+def _split_example_claim(text: str) -> list[ExtractedClaim]:
+    cleaned = _clean_claim_text(text)
+    if not cleaned:
+        return []
+
+    marker = EXAMPLE_MARKER_RE.search(cleaned)
+    if not marker:
+        return [ExtractedClaim(cleaned, CORE)]
+
+    prefix = _clean_claim_text(cleaned[: marker.start()])
+    suffix = _clean_claim_text(cleaned[marker.end():])
+    claims: list[ExtractedClaim] = []
+
+    if len(prefix.split()) >= 5:
+        claims.append(ExtractedClaim(prefix, CORE))
+
+    if suffix:
+        optional_text = f"Examples include {suffix}"
+        if len(optional_text.split()) >= 3:
+            claims.append(ExtractedClaim(optional_text, OPTIONAL))
+
+    if claims:
+        return claims
+    return [ExtractedClaim(cleaned, OPTIONAL)]
+
+
+def _dedupe_claim_specs(parts: list[ExtractedClaim], max_claims: int) -> list[ExtractedClaim]:
+    claims: list[ExtractedClaim] = []
     signatures: list[set[str]] = []
 
     for part in parts:
-        signature = set(_signature(part))
+        signature = set(_signature(part.text))
         if len(signature) < 2:
             continue
 
@@ -78,12 +143,19 @@ def _dedupe_claims(parts: list[str], max_claims: int) -> list[str]:
     return claims
 
 
-def _regex_extract_claims(ideal_answer: str, max_claims: int = 6) -> list[str]:
+def _dedupe_claims(parts: list[str], max_claims: int) -> list[str]:
+    specs = [ExtractedClaim(_clean_claim_text(part), CORE) for part in parts]
+    return [claim.text for claim in _dedupe_claim_specs(specs, max_claims)]
+
+
+def _regex_extract_claim_specs(
+    ideal_answer: str, max_claims: int = 6,
+) -> list[ExtractedClaim]:
     text = ideal_answer.strip()
     if not text:
         return []
 
-    raw_parts: list[str] = []
+    raw_specs: list[ExtractedClaim] = []
     for sentence in SENTENCE_SPLIT_RE.split(text):
         sentence = sentence.strip(" \n\t-")
         if not sentence:
@@ -91,16 +163,56 @@ def _regex_extract_claims(ideal_answer: str, max_claims: int = 6) -> list[str]:
         for part in CLAUSE_SPLIT_RE.split(sentence):
             cleaned = part.strip(" ,.;:-")
             if len(cleaned.split()) >= 4:
-                raw_parts.append(cleaned)
+                raw_specs.extend(_split_example_claim(cleaned))
 
-    if not raw_parts:
-        raw_parts = [text]
+    if not raw_specs:
+        raw_specs = [ExtractedClaim(text, CORE)]
 
-    claims = _dedupe_claims(raw_parts, max_claims)
-    return claims or [text]
+    claims = _dedupe_claim_specs(raw_specs, max_claims)
+    return claims or [ExtractedClaim(text, CORE)]
 
 
-def _parse_llm_claims(response_text: str, max_claims: int) -> list[str]:
+def _regex_extract_claims(ideal_answer: str, max_claims: int = 6) -> list[str]:
+    return [
+        claim.text
+        for claim in _regex_extract_claim_specs(ideal_answer, max_claims=max_claims)
+    ]
+
+
+def _coerce_claim_specs(data: object, max_claims: int) -> list[ExtractedClaim]:
+    if not isinstance(data, list):
+        return []
+
+    specs: list[ExtractedClaim] = []
+    for item in data:
+        if isinstance(item, ExtractedClaim):
+            specs.append(item)
+            continue
+
+        if isinstance(item, str):
+            claim = _clean_claim_text(item)
+            if len(claim.split()) >= 3:
+                specs.append(ExtractedClaim(claim, CORE))
+            continue
+
+        if not isinstance(item, dict):
+            continue
+        raw_claim = item.get("claim") or item.get("text")
+        if not isinstance(raw_claim, str):
+            continue
+        claim = _clean_claim_text(raw_claim)
+        if len(claim.split()) >= 3:
+            specs.append(
+                ExtractedClaim(
+                    claim,
+                    _coerce_importance(item.get("importance") or item.get("type")),
+                )
+            )
+
+    return _dedupe_claim_specs(specs, max_claims)
+
+
+def _parse_llm_claims(response_text: str, max_claims: int) -> list[ExtractedClaim]:
     text = response_text.strip()
     if not text:
         return []
@@ -115,20 +227,13 @@ def _parse_llm_claims(response_text: str, max_claims: int) -> list[str]:
                 for line in text.splitlines()
                 if line.strip()
             ]
-            return _dedupe_claims(lines, max_claims)
+            return _dedupe_claim_specs(
+                [ExtractedClaim(line, CORE) for line in lines],
+                max_claims,
+            )
         data = json.loads(match.group(0))
 
-    if not isinstance(data, list):
-        return []
-
-    cleaned = []
-    for item in data:
-        if not isinstance(item, str):
-            continue
-        claim = item.strip(" \n\t-")
-        if len(claim.split()) >= 3:
-            cleaned.append(claim)
-    return _dedupe_claims(cleaned, max_claims)
+    return _coerce_claim_specs(data, max_claims)
 
 
 @lru_cache(maxsize=512)
@@ -137,7 +242,7 @@ def _extract_claims_with_llm(
     ideal_answer: str,
     max_claims: int,
     model: str,
-) -> tuple[str, ...]:
+) -> tuple[ExtractedClaim, ...]:
     settings = get_settings()
     if not settings.GROQ_API_KEY:
         return ()
@@ -158,17 +263,20 @@ def _extract_claims_with_llm(
     return tuple(_parse_llm_claims(content, max_claims))
 
 
-def extract_claims(
+def extract_claim_specs(
     ideal_answer: str,
     question: str = "",
     max_claims: int = 6,
-) -> list[str]:
+) -> list[ExtractedClaim]:
     """
-    Break an ideal answer into short atomic claims that can be matched
-    independently against the candidate answer.
+    Break an ideal answer into short atomic claims with importance metadata.
+
+    Core claims are required for coverage; optional claims are examples or
+    named implementation choices that can add credit but should not be listed
+    as missing concepts when absent.
     """
     settings = get_settings()
-    fallback = _regex_extract_claims(ideal_answer, max_claims=max_claims)
+    fallback = _regex_extract_claim_specs(ideal_answer, max_claims=max_claims)
 
     if settings.CLAIM_EXTRACTION_MODE != "llm":
         return fallback
@@ -176,15 +284,36 @@ def extract_claims(
         return fallback
 
     try:
-        claims = list(
-            _extract_claims_with_llm(
-                question.strip(),
-                ideal_answer.strip(),
-                max_claims,
-                settings.CLAIM_EXTRACTION_MODEL,
-            )
+        claims = _coerce_claim_specs(
+            list(
+                _extract_claims_with_llm(
+                    question.strip(),
+                    ideal_answer.strip(),
+                    max_claims,
+                    settings.CLAIM_EXTRACTION_MODEL,
+                )
+            ),
+            max_claims,
         )
         return claims or fallback
     except Exception as exc:
         logger.warning("LLM claim extraction failed, falling back to regex: %s", exc)
         return fallback
+
+
+def extract_claims(
+    ideal_answer: str,
+    question: str = "",
+    max_claims: int = 6,
+) -> list[str]:
+    """
+    Backward-compatible wrapper that returns claim text only.
+    """
+    return [
+        claim.text
+        for claim in extract_claim_specs(
+            ideal_answer,
+            question=question,
+            max_claims=max_claims,
+        )
+    ]

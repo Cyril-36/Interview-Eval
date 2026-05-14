@@ -1,9 +1,12 @@
-import uuid
 import json
+import hashlib
+import hmac
 import logging
+import secrets
 import sqlite3
 import threading
 import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -13,12 +16,20 @@ logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 DB_PATH = DATA_DIR / "sessions.db"
+IN_PROGRESS_TTL_SECONDS = 300
 
 
 class SessionState(str, Enum):
     SETUP = "setup"
     INTERVIEWING = "interviewing"
     COMPLETE = "complete"
+
+
+class EvaluationReservationStatus(str, Enum):
+    RESERVED = "reserved"
+    ANSWERED = "answered"
+    IN_PROGRESS = "in_progress"
+    MISSING_SESSION = "missing_session"
 
 
 class SessionStoreError(RuntimeError):
@@ -67,6 +78,8 @@ class Session:
     level: str
     category: str
     difficulty: str
+    access_token: str | None = None
+    access_token_hash: str = ""
     questions: list[QuestionItem] = field(default_factory=list)
     answers: list[AnswerResult] = field(default_factory=list)
     state: SessionState = SessionState.SETUP
@@ -86,7 +99,14 @@ class SessionManager:
         self._migrate()
 
     def _migrate(self):
-        """Add missing answer columns to existing answers tables."""
+        """Add missing session/answer columns to existing tables."""
+        session_cursor = self._conn.execute("PRAGMA table_info(sessions)")
+        session_columns = {row[1] for row in session_cursor.fetchall()}
+        if "access_token_hash" not in session_columns:
+            self._conn.execute(
+                "ALTER TABLE sessions ADD COLUMN access_token_hash TEXT NOT NULL DEFAULT ''"
+            )
+
         cursor = self._conn.execute("PRAGMA table_info(answers)")
         columns = {row[1] for row in cursor.fetchall()}
         migrate_cols = [
@@ -118,6 +138,7 @@ class SessionManager:
                 level TEXT NOT NULL,
                 category TEXT NOT NULL,
                 difficulty TEXT NOT NULL,
+                access_token_hash TEXT NOT NULL,
                 state TEXT NOT NULL DEFAULT 'setup',
                 created_at TEXT NOT NULL,
                 questions TEXT NOT NULL DEFAULT '[]'
@@ -150,20 +171,42 @@ class SessionManager:
                 FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE,
                 UNIQUE(session_id, question_index)
             );
+            CREATE TABLE IF NOT EXISTS in_progress_answers (
+                session_id TEXT NOT NULL,
+                question_index INTEGER NOT NULL,
+                started_at REAL NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE,
+                UNIQUE(session_id, question_index)
+            );
         """)
         self._conn.commit()
+
+    @staticmethod
+    def _hash_token(access_token: str) -> str:
+        return hashlib.sha256(access_token.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _generate_access_token() -> str:
+        return secrets.token_urlsafe(32)
+
+    def _clear_expired_in_progress_locked(self):
+        cutoff = time.time() - IN_PROGRESS_TTL_SECONDS
+        self._conn.execute(
+            "DELETE FROM in_progress_answers WHERE started_at < ?",
+            (cutoff,),
+        )
 
     def _load_session(self, session_id: str) -> Session | None:
         """Load a session and its answers from the database."""
         row = self._conn.execute(
-            "SELECT session_id, role, level, category, difficulty, state, "
-            "created_at, questions FROM sessions WHERE session_id = ?",
+            "SELECT session_id, role, level, category, difficulty, access_token_hash, "
+            "state, created_at, questions FROM sessions WHERE session_id = ?",
             (session_id,),
         ).fetchone()
         if row is None:
             return None
 
-        questions = [QuestionItem(**q) for q in json.loads(row[7])]
+        questions = [QuestionItem(**q) for q in json.loads(row[8])]
 
         answer_rows = self._conn.execute(
             "SELECT question_index, candidate_answer, sbert_score, nli_score, "
@@ -210,33 +253,38 @@ class SessionManager:
             level=row[2],
             category=row[3],
             difficulty=row[4],
+            access_token_hash=row[5],
             questions=questions,
             answers=answers,
-            state=SessionState(row[5]),
-            created_at=row[6],
+            state=SessionState(row[6]),
+            created_at=row[7],
         )
 
     def create_session(
         self, role: str, level: str, category: str, difficulty: str
     ) -> Session:
         session_id = str(uuid.uuid4())
+        access_token = self._generate_access_token()
         session = Session(
             session_id=session_id,
             role=role,
             level=level,
             category=category,
             difficulty=difficulty,
+            access_token=access_token,
+            access_token_hash=self._hash_token(access_token),
         )
         self._conn.execute(
             "INSERT INTO sessions "
-            "(session_id, role, level, category, difficulty, state, created_at, questions) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "(session_id, role, level, category, difficulty, access_token_hash, state, created_at, questions) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 session.session_id,
                 session.role,
                 session.level,
                 session.category,
                 session.difficulty,
+                session.access_token_hash,
                 session.state.value,
                 session.created_at,
                 "[]",
@@ -254,6 +302,18 @@ class SessionManager:
 
     def get_session(self, session_id: str) -> Session | None:
         return self._load_session(session_id)
+
+    def verify_access_token(self, session_id: str, access_token: str) -> bool:
+        row = self._conn.execute(
+            "SELECT access_token_hash FROM sessions WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        if row is None or not row[0] or not access_token:
+            return False
+        return hmac.compare_digest(
+            str(row[0]),
+            self._hash_token(access_token),
+        )
 
     def set_questions(self, session_id: str, questions: list[QuestionItem]):
         questions_json = json.dumps(
@@ -274,12 +334,78 @@ class SessionManager:
         )
         self._conn.commit()
 
+    def begin_answer_evaluation(
+        self, session_id: str, question_index: int
+    ) -> EvaluationReservationStatus:
+        with self._lock:
+            try:
+                self._clear_expired_in_progress_locked()
+                session_exists = self._conn.execute(
+                    "SELECT 1 FROM sessions WHERE session_id = ?",
+                    (session_id,),
+                ).fetchone()
+                if session_exists is None:
+                    return EvaluationReservationStatus.MISSING_SESSION
 
+                answer_exists = self._conn.execute(
+                    "SELECT 1 FROM answers WHERE session_id = ? AND question_index = ?",
+                    (session_id, question_index),
+                ).fetchone()
+                if answer_exists:
+                    self._conn.execute(
+                        "DELETE FROM in_progress_answers WHERE session_id = ? AND question_index = ?",
+                        (session_id, question_index),
+                    )
+                    self._conn.commit()
+                    return EvaluationReservationStatus.ANSWERED
+
+                self._conn.execute(
+                    "INSERT INTO in_progress_answers (session_id, question_index, started_at) "
+                    "VALUES (?, ?, ?)",
+                    (session_id, question_index, time.time()),
+                )
+                self._conn.commit()
+                return EvaluationReservationStatus.RESERVED
+            except sqlite3.IntegrityError:
+                self._conn.rollback()
+                return EvaluationReservationStatus.IN_PROGRESS
+            except sqlite3.DatabaseError as exc:
+                self._conn.rollback()
+                raise SessionStoreError(
+                    f"Failed to reserve answer evaluation: {exc}"
+                ) from exc
+
+    def finish_answer_evaluation(self, session_id: str, question_index: int):
+        with self._lock:
+            try:
+                self._clear_expired_in_progress_locked()
+                self._conn.execute(
+                    "DELETE FROM in_progress_answers WHERE session_id = ? AND question_index = ?",
+                    (session_id, question_index),
+                )
+                self._conn.commit()
+            except sqlite3.DatabaseError as exc:
+                self._conn.rollback()
+                raise SessionStoreError(
+                    f"Failed to clear answer evaluation state: {exc}"
+                ) from exc
+
+    def get_in_progress_indices(self, session_id: str) -> list[int]:
+        with self._lock:
+            self._clear_expired_in_progress_locked()
+            rows = self._conn.execute(
+                "SELECT question_index FROM in_progress_answers "
+                "WHERE session_id = ? ORDER BY question_index",
+                (session_id,),
+            ).fetchall()
+            self._conn.commit()
+        return [int(row[0]) for row in rows]
 
     def add_answer(self, session_id: str, result: AnswerResult) -> bool:
         """Add an answer to a session. Returns False if duplicate."""
         with self._lock:
             try:
+                self._clear_expired_in_progress_locked()
                 row = self._conn.execute(
                     "SELECT questions FROM sessions WHERE session_id = ?",
                     (session_id,),
@@ -333,6 +459,10 @@ class SessionManager:
                 ) from exc
 
             # Check if all questions are answered; if so, mark complete
+            self._conn.execute(
+                "DELETE FROM in_progress_answers WHERE session_id = ? AND question_index = ?",
+                (session_id, result.question_index),
+            )
             questions = json.loads(row[0])
             answer_count = self._conn.execute(
                 "SELECT COUNT(*) FROM answers WHERE session_id = ?",

@@ -21,6 +21,27 @@ def _run_v2_nlp_scorers(candidate_answer: str, ideal_answer: str, question: str)
     return sbert_raw, nli_raw, keyword_raw, keyword_missing, claim_result
 
 
+def _apply_correctness_gate(settings, calibrated: float, llm_result) -> float:
+    """
+    Cap the calibrated composite when the LLM judge reports low correctness.
+
+    Two-tier: severe miss (<low_threshold) caps at low_cap; moderate miss
+    (<mid_threshold) caps at mid_cap. Skipped when the LLM judge is a
+    fallback (no signal) or the gate is disabled.
+    """
+    if not settings.LLM_CORRECTNESS_GATE_ENABLED:
+        return calibrated
+    if llm_result.is_fallback:
+        return calibrated
+
+    correctness_100 = llm_result.correctness * 100.0
+    if correctness_100 < settings.LLM_CORRECTNESS_GATE_LOW_THRESHOLD:
+        return round(min(calibrated, float(settings.LLM_CORRECTNESS_GATE_LOW_CAP)), 1)
+    if correctness_100 < settings.LLM_CORRECTNESS_GATE_MID_THRESHOLD:
+        return round(min(calibrated, float(settings.LLM_CORRECTNESS_GATE_MID_CAP)), 1)
+    return calibrated
+
+
 def _build_result_v2(
     settings,
     sbert_raw: float,
@@ -54,17 +75,24 @@ def _build_result_v2(
         )
     composite_100 = round(composite_raw * 100, 1)
     calibrated = calibrate(composite_100, is_behavioral=False)
+    calibrated = _apply_correctness_gate(settings, calibrated, llm_result)
 
     missing_concepts = (
         claim_result.missing_claims if claim_result.missing_claims else keyword_missing
     )
 
+    partial_threshold = max(
+        0.0, settings.CLAIM_MATCH_THRESHOLD - settings.CLAIM_SOFT_MARGIN,
+    )
     claim_matches_dicts = [
         {
             "claim": m.claim,
             "covered": m.covered,
+            "partial": (not m.covered) and m.combined >= partial_threshold,
+            "match_score": round(m.combined, 4),
             "similarity": round(m.similarity, 4),
             "contradiction": round(m.contradiction, 4),
+            "importance": m.importance,
         }
         for m in claim_result.matches
     ]

@@ -5,6 +5,7 @@ import {
   getSessionSummary,
   checkSessionStatus,
   getAnswerResult,
+  parseResume,
 } from "../utils/api";
 import { parseSetupValue } from "../utils/setup";
 
@@ -128,7 +129,14 @@ function sleep(ms) {
 function loadSavedSession() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.phase === PHASES.INTERVIEW && parsed?.sessionId && !parsed?.sessionToken) {
+        localStorage.removeItem(STORAGE_KEY);
+        return { legacyWithoutToken: true };
+      }
+      return parsed;
+    }
   } catch { /* corrupt data — ignore */ }
   return null;
 }
@@ -137,15 +145,28 @@ export default function useChat() {
   const saved = useRef(loadSavedSession());
 
   const [messages, setMessages] = useState(() => {
+    if (saved.current?.legacyWithoutToken) {
+      return [
+        {
+          role: "ai",
+          type: "text",
+          content: "A previous saved session is missing its security token and cannot be restored. Start a new session below.",
+        },
+        buildSetupPrompt(SETUP_STEPS[0]),
+      ];
+    }
     if (saved.current) {
       return saved.current.messages;
     }
     return [buildSetupPrompt(SETUP_STEPS[0])];
   });
-  const [phase, setPhase] = useState(() => saved.current?.phase ?? PHASES.SETUP);
+  const [phase, setPhase] = useState(
+    () => (saved.current?.legacyWithoutToken ? PHASES.SETUP : saved.current?.phase ?? PHASES.SETUP)
+  );
   const [setupIndex, setSetupIndex] = useState(0);
   const [setupData, setSetupData] = useState({});
   const [sessionId, setSessionId] = useState(() => saved.current?.sessionId ?? null);
+  const [sessionToken, setSessionToken] = useState(() => saved.current?.sessionToken ?? null);
   const [questions, setQuestions] = useState(() => saved.current?.questions ?? []);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(
     () => saved.current?.currentQuestionIndex ?? 0
@@ -153,6 +174,7 @@ export default function useChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [setupInputPlaceholder, setSetupInputPlaceholder] = useState("");
   const [inputFocusSignal, setInputFocusSignal] = useState(0);
+  const [resumeData, setResumeData] = useState(null);
 
   const questionsRef = useRef(saved.current?.questions ?? []);
   const abortRef = useRef(null);
@@ -170,24 +192,33 @@ export default function useChat() {
     setSetupIndex(0);
     setSetupData({});
     setSessionId(null);
+    setSessionToken(null);
     setQuestions([]);
     setCurrentQuestionIndex(0);
     setIsLoading(false);
     setSetupInputPlaceholder("");
+    setResumeData(null);
     questionsRef.current = [];
   }, []);
 
   // Persist interview state to localStorage (strip transient progress messages)
   useEffect(() => {
-    if (phase === PHASES.INTERVIEW && sessionId) {
+    if (phase === PHASES.INTERVIEW && sessionId && sessionToken) {
       const persistable = messages.filter((m) => m.type !== "progress");
-      const data = { messages: persistable, phase, sessionId, questions, currentQuestionIndex };
+      const data = {
+        messages: persistable,
+        phase,
+        sessionId,
+        sessionToken,
+        questions,
+        currentQuestionIndex,
+      };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
     if (phase === PHASES.SUMMARY) {
       localStorage.removeItem(STORAGE_KEY);
     }
-  }, [messages, phase, sessionId, questions, currentQuestionIndex]);
+  }, [messages, phase, sessionId, sessionToken, questions, currentQuestionIndex]);
 
   const addMessage = useCallback((msg) => {
     setMessages((prev) => [...prev, msg]);
@@ -229,7 +260,7 @@ export default function useChat() {
       });
 
       try {
-        const summary = await getSessionSummary(sessionId);
+        const summary = await getSessionSummary(sessionId, sessionToken);
         setPhase(PHASES.SUMMARY);
         addMessage({ role: "ai", type: "summary", data: summary });
       } catch {
@@ -246,7 +277,7 @@ export default function useChat() {
     const nextIdx = evaluatedQuestionIndex + 1;
     setCurrentQuestionIndex(nextIdx);
     appendQuestionMessage(nextIdx);
-  }, [addMessage, appendQuestionMessage, sessionId]);
+  }, [addMessage, appendQuestionMessage, sessionId, sessionToken]);
 
   const updateProgressMessage = useCallback((text) => {
     setMessages((prev) => {
@@ -266,7 +297,7 @@ export default function useChat() {
     updateProgressMessage("Connection interrupted. Checking evaluation status...");
 
     for (let attempt = 0; attempt < MAX_RECOVERY_POLLS; attempt += 1) {
-      const status = await checkSessionStatus(sessionId);
+      const status = await checkSessionStatus(sessionId, sessionToken);
 
       if (status.kind === "missing") {
         resetToSetup("Your previous session is no longer available. Starting fresh.");
@@ -282,7 +313,7 @@ export default function useChat() {
 
       if (answered) {
         try {
-          const recovered = await getAnswerResult(sessionId, questionIndex);
+          const recovered = await getAnswerResult(sessionId, questionIndex, sessionToken);
           await applyEvaluationResult(recovered, questionIndex, {
             recoveryNotice:
               "Connection interrupted, but your evaluation completed. Restored the result below.",
@@ -302,17 +333,17 @@ export default function useChat() {
     }
 
     return false;
-  }, [applyEvaluationResult, resetToSetup, sessionId, updateProgressMessage]);
+  }, [applyEvaluationResult, resetToSetup, sessionId, sessionToken, updateProgressMessage]);
 
   // Validate and reconcile restored session against backend on mount
   useEffect(() => {
     const s = saved.current;
-    if (!s?.sessionId) return;
+    if (!s?.sessionId || !s?.sessionToken) return;
     let cancelled = false;
 
     (async () => {
       try {
-        const status = await checkSessionStatus(s.sessionId);
+        const status = await checkSessionStatus(s.sessionId, s.sessionToken);
         if (cancelled || status.kind === "unavailable") {
           return;
         }
@@ -327,7 +358,7 @@ export default function useChat() {
           localStorage.removeItem(STORAGE_KEY);
           setPhase(PHASES.SUMMARY);
           try {
-            const summary = await getSessionSummary(s.sessionId);
+            const summary = await getSessionSummary(s.sessionId, s.sessionToken);
             if (!cancelled) {
               setMessages((prev) => [...prev, { role: "ai", type: "summary", data: summary }]);
             }
@@ -347,7 +378,7 @@ export default function useChat() {
 
         if (backendIdx > localIdx) {
           try {
-            const recovered = await getAnswerResult(s.sessionId, localIdx);
+            const recovered = await getAnswerResult(s.sessionId, localIdx, s.sessionToken);
             if (!cancelled) {
               await applyEvaluationResult(recovered, localIdx, {
                 recoveryNotice:
@@ -463,9 +494,18 @@ export default function useChat() {
             difficulty: newSetupData.difficulty,
             num_questions: numericValue,
           };
+          if (resumeData) {
+            if (resumeData.summary) {
+              config.resume_context = resumeData.summary;
+            }
+            if (resumeData.skills && resumeData.skills.length > 0) {
+              config.extracted_skills = resumeData.skills;
+            }
+          }
 
           const data = await generateQuestions(config);
           setSessionId(data.session_id);
+          setSessionToken(data.session_token);
           setQuestions(data.questions);
           questionsRef.current = data.questions;
           setCurrentQuestionIndex(0);
@@ -496,8 +536,31 @@ export default function useChat() {
         }
       }
     },
-    [setupIndex, setupData, addMessage]
+    [setupIndex, setupData, resumeData, addMessage]
   );
+
+  const handleResumeUpload = useCallback(async (file) => {
+    const parsed = await parseResume(file);
+    setResumeData({
+      skills: parsed.skills || [],
+      summary: parsed.summary || "",
+      fileName: file.name,
+      pageCount: parsed.page_count || 0,
+      truncated: !!parsed.truncated,
+    });
+  }, []);
+
+  const handleResumeClear = useCallback(() => {
+    setResumeData(null);
+  }, []);
+
+  const handleResumeRemoveSkill = useCallback((skill) => {
+    setResumeData((prev) =>
+      prev
+        ? { ...prev, skills: prev.skills.filter((s) => s !== skill) }
+        : prev
+    );
+  }, []);
 
   const handleQuickReply = useCallback(
     (value) => {
@@ -552,7 +615,7 @@ export default function useChat() {
               updateProgressMessage(label);
             }
           },
-          { signal: abortRef.current.signal }
+          { signal: abortRef.current.signal, sessionToken }
         );
         await applyEvaluationResult(data, currentQuestionIndex);
       } catch (err) {
@@ -586,6 +649,7 @@ export default function useChat() {
     },
     [
       sessionId,
+      sessionToken,
       currentQuestionIndex,
       addMessage,
       applyEvaluationResult,
@@ -625,5 +689,9 @@ export default function useChat() {
     setupInputPlaceholder,
     inputFocusSignal,
     activeSetupStep: phase === PHASES.SETUP ? SETUP_STEPS[setupIndex] : null,
+    resumeData,
+    handleResumeUpload,
+    handleResumeClear,
+    handleResumeRemoveSkill,
   };
 }

@@ -19,6 +19,8 @@
 | **Dual pipelines** | Technical (claim-based) + Behavioral (STAR rubric) |
 | **Rich feedback** | Per-question scores, missing keywords, claim coverage, LLM feedback |
 | **Session analytics** | Overall grade, strongest/weakest areas, rubric averages |
+| **Session recovery** | SQLite-backed sessions with interrupted-evaluation restore support |
+| **Session access control** | Per-session bearer token required for status, answer, and summary reads |
 
 ---
 
@@ -30,7 +32,7 @@ graph TD
     B --> C[Groq LLM<br/>Llama 3.3-70B]
     B --> D[Local Models<br/>SBERT + DeBERTa + KeyBERT]
     B --> E[Scoring Pipeline<br/>Technical vs Behavioral]
-    E --> F[Session Store<br/>In-memory]
+    E --> F[Session Store<br/>SQLite + Session Token]
 ```
 
 **Scoring Pipeline Decision Tree:**
@@ -52,6 +54,7 @@ PrepBuddy/
 │   │   ├── routers/           # API endpoints
 │   │   ├── services/          # Business logic
 │   │   └── scoring/           # Multi-signal pipelines
+│   ├── data/                  # SQLite session store
 │   ├── evaluation/            # Research + grid search
 │   └── tests/                 # pytest suite
 ├── frontend/                  # React 18 chat UI
@@ -69,11 +72,9 @@ PrepBuddy/
 | Category | Technologies |
 |----------|--------------|
 | **Backend** | FastAPI, Pydantic v2, PyTorch, Sentence Transformers, spaCy, Groq SDK |
-| **Frontend** | React 18, Custom Hooks, SSE (EventSource), Lucide React Icons |
+| **Frontend** | React 18, Custom Hooks, SSE-style streaming via `fetch`, browser speech recognition |
 | **Scoring** | SBERT (`all-MiniLM-L6-v2`), DeBERTa NLI, KeyBERT, Llama 3.3-70B/3.1-8B |
-| **Infra** | uvicorn ASGI, Thread-safe ModelRegistry, Auto device detection (MPS/CUDA/CPU) |
-
-**Lucide React Icons**: Used in `CubeIcon.js` and planned for ScoreCard status indicators. Install via `npm i lucide-react`.
+| **Infra** | uvicorn ASGI, SQLite (WAL mode), Thread-safe ModelRegistry, Auto device detection (MPS/CUDA/CPU) |
 
 ---
 
@@ -131,11 +132,15 @@ npm start                    # http://localhost:3000
 
 ## 🔬 Evaluation Results
 
-**Grid Search Optimization** (vs human-labeled dataset):
+**Current Research Snapshot**:
 ```
-Pearson r = 0.8864 (Excellent correlation)
-Optimal weights: SBERT=0.40, NLI=0.10, Keyword=0.30, LLM=0.20
+Best offline claim-hybrid NLP method on the labeled dataset:
+Pearson r = 0.9165
+Spearman r = 0.8675
 ```
+
+Technical anchor calibration is derived from `evaluation/report.json`.
+Behavioral anchor calibration is derived from `evaluation/behavioral_calibration.json`.
 
 **Metrics Used**:
 - BERTScore (DeBERTa-XL-MNLI)
@@ -151,7 +156,11 @@ Optimal weights: SBERT=0.40, NLI=0.10, Keyword=0.30, LLM=0.20
 | `/api/generate_questions` | POST | Create session with N diverse questions |
 | `/api/evaluate_answer_sse` | POST | **Streaming** answer evaluation |
 | `/api/evaluate_answer` | POST | Blocking answer evaluation |
-| `/api/session/{id}` | GET | Session summary + analytics |
+| `/api/session_status` | GET | Session state, answer count, in-progress indices |
+| `/api/answer_result` | GET | Fetch stored scorecard for one answered question |
+| `/api/session_summary` | GET | Session summary + analytics |
+
+`/api/generate_questions` returns both `session_id` and `session_token`. Every later session-scoped endpoint requires the token in the `X-Session-Token` header.
 
 **Example Request**:
 ```json
@@ -175,7 +184,7 @@ cd ../frontend
 npm test                      # Frontend components
 ```
 
-**Coverage**: Schema validation, claim pipeline, SSE streaming, session management.
+**Coverage**: Schema validation, claim pipeline, calibration, SSE streaming, recovery, auth, session management.
 
 ---
 
@@ -202,11 +211,17 @@ CLAIM_MATCH_THRESHOLD=0.62
 DEVICE=mps                         # cpu/cuda/mps (auto-detect)
 ```
 
+**Storage**:
+- Sessions persist in `backend/data/sessions.db`
+- SQLite uses WAL mode for cross-worker visibility
+- In-progress evaluation locks expire automatically to avoid stuck sessions
+
 ---
 
 ## 📈 Future Work
 
-- [ ] Persistent session storage (PostgreSQL/Redis)
+- [ ] Multi-user accounts on top of the current session-token model
+- [ ] Persistent multi-user storage (PostgreSQL/Redis) beyond the local SQLite store
 - [ ] Multi-language support
 - [ ] Custom rubrics per company/role
 - [ ] Voice input + transcription
@@ -217,5 +232,3 @@ DEVICE=mps                         # cpu/cuda/mps (auto-detect)
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) © 2026 Chaitanya Pudota
-
-

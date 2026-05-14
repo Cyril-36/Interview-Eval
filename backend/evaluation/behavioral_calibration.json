@@ -1,0 +1,37 @@
+{
+  "source_dataset": "evaluation/dataset.json",
+  "subset": "behavioral categories",
+  "categories": [
+    "Team Collaboration",
+    "Conflict Resolution",
+    "Culture Fit",
+    "Career Goals",
+    "Leadership",
+    "Motivation",
+    "Adaptability",
+    "Work Style"
+  ],
+  "scoring_mode": "behavioral fallback composite without STAR LLM",
+  "sample_count": 120,
+  "quality_band_means": {
+    "poor": {
+      "avg_raw_composite": 20.2,
+      "avg_human_score_100": 21.4
+    },
+    "average": {
+      "avg_raw_composite": 48.8,
+      "avg_human_score_100": 52.4
+    },
+    "good": {
+      "avg_raw_composite": 89.8,
+      "avg_human_score_100": 81.0
+    }
+  },
+  "anchors": [
+    [0.0, 0.0],
+    [20.2, 21.4],
+    [48.8, 52.4],
+    [89.8, 81.0],
+    [100.0, 100.0]
+  ]
+}

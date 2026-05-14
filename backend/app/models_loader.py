@@ -5,7 +5,7 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from keybert import KeyBERT
 import spacy
 
-from app.config import Settings
+from app.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class ModelRegistry:
     def __init__(self, settings: Settings | None = None):
         if self._initialized:  # type: ignore[has-type]
             return
-        self._settings = settings
+        self._settings: Settings = settings or get_settings()
         self._sbert: SentenceTransformer | None = None
         self._nli_tokenizer: object | None = None
         self._nli_model: object | None = None
@@ -35,7 +35,7 @@ class ModelRegistry:
     @property
     def device(self) -> str:
         if self._device is None:
-            self._device = self._settings.get_device()  # type: ignore[union-attr]
+            self._device = self._settings.get_device()
         return self._device
 
     @property

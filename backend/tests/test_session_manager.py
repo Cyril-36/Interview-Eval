@@ -1,12 +1,11 @@
 """Tests for SessionManager (SQLite-backed session store)."""
-import os
-import tempfile
 import threading
 from unittest.mock import patch
 
 import pytest
 
 from app.services.session_manager import (
+    EvaluationReservationStatus,
     SessionManager,
     SessionState,
     QuestionItem,
@@ -61,8 +60,14 @@ class TestCreateAndRetrieve:
     def test_create_returns_session(self, manager):
         session = manager.create_session("SWE", "Junior", "Python", "Easy")
         assert session.session_id
+        assert session.access_token
         assert session.role == "SWE"
         assert session.state == SessionState.SETUP
+
+    def test_verify_access_token(self, manager):
+        session = manager.create_session("SWE", "Junior", "Python", "Easy")
+        assert manager.verify_access_token(session.session_id, session.access_token) is True
+        assert manager.verify_access_token(session.session_id, "wrong-token") is False
 
     def test_get_session_returns_created(self, manager):
         session = manager.create_session("SWE", "Junior", "Python", "Easy")
@@ -138,6 +143,20 @@ class TestAddAnswer:
             "similarity": 0.82,
             "contradiction": 0.0,
         }]
+
+    def test_in_progress_lifecycle(self, manager):
+        session = manager.create_session("SWE", "Junior", "Python", "Easy")
+        manager.set_questions(session.session_id, _make_questions(1))
+
+        reserved = manager.begin_answer_evaluation(session.session_id, 0)
+        assert reserved == EvaluationReservationStatus.RESERVED
+        assert manager.get_in_progress_indices(session.session_id) == [0]
+
+        duplicate_reservation = manager.begin_answer_evaluation(session.session_id, 0)
+        assert duplicate_reservation == EvaluationReservationStatus.IN_PROGRESS
+
+        manager.finish_answer_evaluation(session.session_id, 0)
+        assert manager.get_in_progress_indices(session.session_id) == []
 
 
 class TestDeleteSession:

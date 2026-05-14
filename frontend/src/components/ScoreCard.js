@@ -97,14 +97,34 @@ export default function ScoreCard({ data }) {
           </div>
         )}
 
-        {scores.missing_keywords.length > 0 && (
-          <div className="missing-keywords">
-            <span className="mk-label">Missing concepts: </span>
-            {scores.missing_keywords.map((kw, i) => (
-              <span key={i} className="keyword-tag">{kw}</span>
-            ))}
-          </div>
-        )}
+        {scores.missing_keywords.length > 0 && (() => {
+          const items = scores.missing_keywords;
+          const avgLen =
+            items.reduce((sum, item) => sum + item.length, 0) / items.length;
+          const looksLikeSentences = avgLen > 30;
+          return (
+            <div
+              className={
+                looksLikeSentences
+                  ? "missing-keywords missing-keywords-list"
+                  : "missing-keywords"
+              }
+            >
+              <span className="mk-label">Missing concepts:</span>
+              {looksLikeSentences ? (
+                <ul className="missing-list">
+                  {items.map((kw, i) => (
+                    <li key={i} className="missing-list-item">{kw}</li>
+                  ))}
+                </ul>
+              ) : (
+                items.map((kw, i) => (
+                  <span key={i} className="keyword-tag">{kw}</span>
+                ))
+              )}
+            </div>
+          );
+        })()}
 
         <button
           className="details-toggle"
@@ -121,17 +141,43 @@ export default function ScoreCard({ data }) {
                 <ul className="claim-list">
                   {scores.claim_matches.map((cm, i) => {
                     const isContradicted = cm.contradiction > 0.3;
-                    const iconClass = isContradicted
-                      ? "contradicted"
-                      : cm.covered
-                        ? "covered"
-                        : "missed";
-                    const icon = isContradicted ? "\u26A0" : cm.covered ? "\u2713" : "\u2717";
+                    const isOptional = cm.importance === "optional";
+                    const isPartial = !cm.covered && !isContradicted && cm.partial;
+                    let iconClass;
+                    let icon;
+                    if (isContradicted) {
+                      iconClass = "contradicted";
+                      icon = "\u26A0";
+                    } else if (cm.covered) {
+                      iconClass = "covered";
+                      icon = "\u2713";
+                    } else if (isPartial) {
+                      iconClass = "partial";
+                      icon = "\u25D1"; // half-filled circle: partial coverage
+                    } else if (isOptional) {
+                      iconClass = "optional";
+                      icon = "\u25CB";
+                    } else {
+                      iconClass = "missed";
+                      icon = "\u2717";
+                    }
+                    // Display the combined match score the coverage decision
+                    // actually uses, falling back to raw similarity for older
+                    // persisted records that don't have match_score.
+                    const displayScore =
+                      typeof cm.match_score === "number" && cm.match_score > 0
+                        ? cm.match_score
+                        : cm.similarity;
                     return (
                       <li key={i} className="claim-item">
                         <span className={`claim-icon ${iconClass}`}>{icon}</span>
-                        <span className="claim-text">{cm.claim}</span>
-                        <span className="claim-similarity">{(cm.similarity * 100).toFixed(0)}%</span>
+                        <span className="claim-text">
+                          {cm.claim}
+                          {isOptional && (
+                            <span className="claim-importance">optional</span>
+                          )}
+                        </span>
+                        <span className="claim-similarity">{(displayScore * 100).toFixed(0)}%</span>
                       </li>
                     );
                   })}

@@ -150,6 +150,8 @@ def _fallback_result(reason: str) -> STARResult:
 
 
 def _normalize_score(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise ValueError("STAR scores must be numeric")
     raw = float(value)
     return max(0.0, min(100.0, raw))
 

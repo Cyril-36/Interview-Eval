@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import re
+from typing import Protocol, Sequence
 
 from sentence_transformers import util
 
@@ -8,6 +9,19 @@ from app.models_loader import get_registry
 from app.services.scoring import nli_scorer
 
 SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n+")
+
+
+class ClaimInput(Protocol):
+    @property
+    def text(self) -> str:
+        ...
+
+    @property
+    def importance(self) -> str:
+        ...
+
+
+ClaimInputs = Sequence[str] | Sequence[ClaimInput]
 
 
 @dataclass
@@ -19,6 +33,7 @@ class ClaimMatch:
     combined: float
     covered: bool
     contradiction: float = 0.0
+    importance: str = "core"
 
 
 def _split_candidate_sentences(candidate_answer: str) -> list[str]:
@@ -39,9 +54,19 @@ def _split_candidate_sentences(candidate_answer: str) -> list[str]:
     return sentences + windows
 
 
+def _normalize_claims(claims: ClaimInputs) -> list[tuple[str, str]]:
+    normalized = []
+    for claim in claims:
+        if isinstance(claim, str):
+            normalized.append((claim, "core"))
+        else:
+            normalized.append((claim.text, claim.importance))
+    return normalized
+
+
 def match_claims(
     candidate_answer: str,
-    claims: list[str],
+    claims: ClaimInputs,
     threshold: float = 0.62,
 ) -> list[ClaimMatch]:
     settings = get_settings()
@@ -49,12 +74,14 @@ def match_claims(
     sbert = registry.sbert
 
     sentences = _split_candidate_sentences(candidate_answer)
-    claim_embeddings = sbert.encode(claims, convert_to_tensor=True)
+    normalized_claims = _normalize_claims(claims)
+    claim_texts = [claim for claim, _importance in normalized_claims]
+    claim_embeddings = sbert.encode(claim_texts, convert_to_tensor=True)
     sentence_embeddings = sbert.encode(sentences, convert_to_tensor=True)
     similarity_matrix = util.cos_sim(claim_embeddings, sentence_embeddings)
 
     matches: list[ClaimMatch] = []
-    for claim_index, claim in enumerate(claims):
+    for claim_index, (claim, importance) in enumerate(normalized_claims):
         similarities = similarity_matrix[claim_index]
         best_index = int(similarities.argmax().item())
         best_sentence = sentences[best_index]
@@ -77,6 +104,7 @@ def match_claims(
                 combined=combined,
                 covered=combined >= threshold,
                 contradiction=contradiction,
+                importance=importance,
             )
         )
 

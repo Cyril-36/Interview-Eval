@@ -33,6 +33,7 @@ const SAVED_SESSION = {
   ],
   phase: "interview",
   sessionId: "sess-123",
+  sessionToken: "session-token-123",
   questions: [
     {
       index: 0,
@@ -54,7 +55,7 @@ describe("App restore flow", () => {
   beforeEach(() => {
     localStorage.clear();
     jest.clearAllMocks();
-    generateQuestions.mockResolvedValue({});
+    generateQuestions.mockResolvedValue({ session_token: "session-token-123" });
     evaluateAnswerSSE.mockResolvedValue({});
     getAnswerResult.mockResolvedValue({});
   });
@@ -143,6 +144,28 @@ describe("App setup quick replies", () => {
   });
 });
 
+describe("App header menu", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    jest.clearAllMocks();
+    checkSessionStatus.mockResolvedValue({ kind: "unavailable" });
+  });
+
+  test("starts a new setup session from the header menu", async () => {
+    localStorage.setItem("interview_session", JSON.stringify(SAVED_SESSION));
+
+    render(<App />);
+
+    expect(await screen.findByText("Saved interview state")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /open menu/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /new session/i }));
+
+    expect(screen.getByText(/Welcome to PrepBuddy!/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Type your response...")).toBeEnabled();
+  });
+});
+
 describe("App interrupted evaluation recovery", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -153,6 +176,7 @@ describe("App interrupted evaluation recovery", () => {
   test("restores a completed evaluation after the SSE request fails", async () => {
     generateQuestions.mockResolvedValue({
       session_id: "sess-123",
+      session_token: "session-token-123",
       questions: [
         {
           index: 0,

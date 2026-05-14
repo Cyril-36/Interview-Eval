@@ -50,6 +50,10 @@ def _setup_session_with_questions(manager, n_questions=2):
     return session
 
 
+def _auth_headers(session, token=None):
+    return {"X-Session-Token": token or session.access_token}
+
+
 class TestDuplicateAnswerRejection:
     def test_duplicate_returns_409(self, client):
         tc, manager = client
@@ -81,7 +85,7 @@ class TestDuplicateAnswerRejection:
                 "session_id": session.session_id,
                 "question_index": 0,
                 "candidate_answer": "My answer",
-            })
+            }, headers=_auth_headers(session))
             assert resp1.status_code == 200
             score_payload = resp1.json()["scores"]
             assert score_payload["llm_reason"] == "Balanced answer."
@@ -92,9 +96,10 @@ class TestDuplicateAnswerRejection:
                 "session_id": session.session_id,
                 "question_index": 0,
                 "candidate_answer": "My answer again",
-            })
+            }, headers=_auth_headers(session))
             assert resp2.status_code == 409
-            assert "already answered" in resp2.json()["detail"]
+            assert "already" in resp2.json()["detail"].lower()
+            assert "answered" in resp2.json()["detail"].lower()
 
 
 class TestQuestionsRemainingAccuracy:
@@ -127,7 +132,7 @@ class TestQuestionsRemainingAccuracy:
                 "session_id": session.session_id,
                 "question_index": 0,
                 "candidate_answer": "answer 0",
-            })
+            }, headers=_auth_headers(session))
             assert resp1.status_code == 200
             data1 = resp1.json()
             assert data1["questions_remaining"] == 1
@@ -138,7 +143,7 @@ class TestQuestionsRemainingAccuracy:
                 "session_id": session.session_id,
                 "question_index": 1,
                 "candidate_answer": "answer 1",
-            })
+            }, headers=_auth_headers(session))
             assert resp2.status_code == 200
             data2 = resp2.json()
             assert data2["questions_remaining"] == 0
@@ -208,7 +213,7 @@ class TestInputValidation:
             "session_id": "fake",
             "question_index": -1,
             "candidate_answer": "answer",
-        })
+        }, headers={"X-Session-Token": "test-token"})
         assert resp.status_code == 422
 
     def test_empty_answer_rejected(self, client):
@@ -217,7 +222,7 @@ class TestInputValidation:
             "session_id": "fake",
             "question_index": 0,
             "candidate_answer": "",
-        })
+        }, headers={"X-Session-Token": "test-token"})
         assert resp.status_code == 422
 
     def test_session_not_found(self, client):
@@ -226,12 +231,15 @@ class TestInputValidation:
             "session_id": "nonexistent-uuid",
             "question_index": 0,
             "candidate_answer": "something",
-        })
+        }, headers={"X-Session-Token": "test-token"})
         assert resp.status_code == 404
 
     def test_summary_not_found(self, client):
         tc, _ = client
-        resp = tc.get("/api/session_summary?session_id=nonexistent")
+        resp = tc.get(
+            "/api/session_summary?session_id=nonexistent",
+            headers={"X-Session-Token": "test-token"},
+        )
         assert resp.status_code == 404
 
 
@@ -240,9 +248,23 @@ class TestSessionRecoveryEndpoints:
         tc, manager = client
         session = _setup_session_with_questions(manager, n_questions=2)
 
-        resp = tc.get(f"/api/session_status?session_id={session.session_id}")
+        resp = tc.get(
+            f"/api/session_status?session_id={session.session_id}",
+            headers=_auth_headers(session),
+        )
         assert resp.status_code == 200
         assert resp.json()["session_id"] == session.session_id
+        assert resp.json()["in_progress_indices"] == []
+
+    def test_session_status_requires_valid_token(self, client):
+        tc, manager = client
+        session = _setup_session_with_questions(manager, n_questions=1)
+
+        resp = tc.get(
+            f"/api/session_status?session_id={session.session_id}",
+            headers=_auth_headers(session, token="wrong-token"),
+        )
+        assert resp.status_code == 401
 
     def test_answer_result_returns_persisted_scorecard_fields(self, client):
         tc, manager = client
@@ -277,15 +299,21 @@ class TestSessionRecoveryEndpoints:
         ))
 
         resp = tc.get(
-            f"/api/answer_result?session_id={session.session_id}&question_index=0"
+            f"/api/answer_result?session_id={session.session_id}&question_index=0",
+            headers=_auth_headers(session),
         )
         assert resp.status_code == 200
         payload = resp.json()
         assert payload["scores"]["llm_reason"] == "Balanced answer."
+        # Older persisted records didn't store match_score/partial; the
+        # schema defaults them so historical sessions remain readable.
         assert payload["scores"]["claim_matches"] == [{
             "claim": "Mentions trade-offs",
             "covered": True,
             "similarity": 0.84,
             "contradiction": 0.0,
+            "match_score": 0.0,
+            "partial": False,
+            "importance": "core",
         }]
         assert payload["feedback"]["model_answer"] == "Ideal answer"
