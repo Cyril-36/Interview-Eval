@@ -1,0 +1,54 @@
+# Keep the build context tight. The local backend/ folder is ~1.7 GB mostly
+# because of venv and the warmed model cache; we do not want any of that in
+# the image (we install fresh inside the container).
+
+# Python virtual envs
+venv/
+.venv/
+env/
+
+# Caches
+__pycache__/
+*.py[cod]
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Local SQLite databases — HF will create fresh ones in the container
+data/sessions.db*
+data/llm_cache.db*
+
+# Editor + OS junk
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local model cache (we re-download in the Dockerfile)
+.cache/
+huggingface/
+sentence-transformers/
+torch/
+
+# Source control
+.git/
+.gitignore
+.github/
+
+# Tests and evaluation artifacts (not needed at runtime)
+tests/
+evaluation/
+
+# Build outputs
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+logs/
